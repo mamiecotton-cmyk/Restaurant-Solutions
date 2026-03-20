@@ -17,6 +17,7 @@ interface CartContextType {
   closeCart: () => void
   toggleCart: () => void
   addItem: (item: Omit<CartItem, 'quantity'>) => void
+  addMultipleItems: (newItems: Omit<CartItem, 'quantity'>[]) => void
   removeItem: (id: string) => void
   updateQuantity: (id: string, quantity: number) => void
   clearCart: () => void
@@ -43,6 +44,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
         )
       }
       return [...prev, { ...newItem, quantity: 1 }]
+    })
+  }, [])
+
+  const addMultipleItems = useCallback((newItems: Omit<CartItem, 'quantity'>[]) => {
+    setItems((prev) => {
+      let next = [...prev]
+      for (const newItem of newItems) {
+        const idx = next.findIndex((i) => i.id === newItem.id)
+        if (idx >= 0) {
+          next = next.map((i) =>
+            i.id === newItem.id ? { ...i, quantity: i.quantity + 1 } : i
+          )
+        } else {
+          next = [...next, { ...newItem, quantity: 1 }]
+        }
+      }
+      return next
     })
   }, [])
 
@@ -80,6 +98,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         closeCart,
         toggleCart,
         addItem,
+        addMultipleItems,
         removeItem,
         updateQuantity,
         clearCart,

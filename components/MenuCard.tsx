@@ -1,16 +1,21 @@
 'use client'
 
 import Image from 'next/image'
+import { useCart } from '@/context/CartContext'
 
 interface MenuCardProps {
+  id: string
   name: string
+  description: string
   priceRange: string
+  price: number
   imageSrc: string
   imageAlt: string
-  onOrder: () => void
 }
 
-export default function MenuCard({ name, priceRange, imageSrc, imageAlt, onOrder }: MenuCardProps) {
+export default function MenuCard({ id, name, description, priceRange, price, imageSrc, imageAlt }: MenuCardProps) {
+  const { addItem } = useCart()
+
   return (
     <div className="group bg-[#111111] rounded-2xl overflow-hidden border border-white/5 hover:border-[#D4AF37]/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-yellow-900/20">
       {/* Image */}
@@ -27,9 +32,12 @@ export default function MenuCard({ name, priceRange, imageSrc, imageAlt, onOrder
       {/* Content */}
       <div className="p-5">
         <h3 className="text-xl font-black text-white uppercase tracking-wide mb-1">{name}</h3>
-        <p className="text-[#D4AF37] font-bold text-lg mb-4">{priceRange}</p>
+        <p className={`text-[#D4AF37] font-bold text-lg ${description ? 'mb-1' : 'mb-4'}`}>{priceRange}</p>
+        {description && (
+          <p className="text-gray-400 text-sm mb-4 leading-relaxed">{description}</p>
+        )}
         <button
-          onClick={onOrder}
+          onClick={() => addItem({ id, name, price, image: imageSrc })}
           className="w-full bg-[#8B0000] hover:bg-red-800 text-white font-bold py-3 rounded-xl uppercase tracking-wider text-sm transition-colors duration-200 active:scale-95 min-h-[48px]"
         >
           Add to Order
