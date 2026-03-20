@@ -1,6 +1,6 @@
 export default function Story() {
   return (
-    <section className="py-24 px-4 bg-[#111111]">
+    <section id="story" className="py-24 px-4 bg-[#111111]">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-16">
           <p className="text-[#D4AF37] uppercase tracking-[0.3em] text-sm font-bold mb-3">— Our Roots —</p>

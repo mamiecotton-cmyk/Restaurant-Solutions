@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { CartProvider } from '@/context/CartContext'
 import CartDrawer from '@/components/CartDrawer'
-import CartButton from '@/components/CartButton'
+import Navbar from '@/components/Navbar'
 
 export const metadata: Metadata = {
   title: "Wally's NW Soul | Northwest Soul. Real Flavor.",
@@ -23,10 +23,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="bg-[#0a0a0a] text-white antialiased">
         <CartProvider>
-          {/* Floating cart button */}
-          <div className="fixed top-4 right-4 z-50">
-            <CartButton />
-          </div>
+          <Navbar />
           {children}
           <CartDrawer />
         </CartProvider>
