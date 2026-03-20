@@ -1,34 +1,8 @@
 'use client'
 
-import { useState } from 'react'
 import Image from 'next/image'
 
 export default function Hero() {
-  const [loading, setLoading] = useState(false)
-
-  const handleOrder = async () => {
-    setLoading(true)
-    try {
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: [
-            { name: 'Crispy Catfish', price: 2000, quantity: 1 },
-            { name: 'Soul Wings', price: 1700, quantity: 1 },
-          ],
-        }),
-      })
-      const data = await res.json()
-      if (data.url) {
-        window.location.href = data.url
-      }
-    } catch (err) {
-      console.error(err)
-      setLoading(false)
-    }
-  }
-
   const scrollToMenu = () => {
     const menu = document.getElementById('menu')
     menu?.scrollIntoView({ behavior: 'smooth' })
@@ -78,11 +52,10 @@ export default function Hero() {
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
           <button
-            onClick={handleOrder}
-            disabled={loading}
-            className="w-full sm:w-auto bg-[#D4AF37] text-black font-black text-lg px-12 py-5 rounded-full uppercase tracking-wider hover:bg-yellow-400 active:scale-95 transition-all duration-200 shadow-lg shadow-yellow-900/40 disabled:opacity-70 disabled:cursor-not-allowed min-h-[56px]"
+            onClick={scrollToMenu}
+            className="w-full sm:w-auto bg-[#D4AF37] text-black font-black text-lg px-12 py-5 rounded-full uppercase tracking-wider hover:bg-yellow-400 active:scale-95 transition-all duration-200 shadow-lg shadow-yellow-900/40 min-h-[56px]"
           >
-            {loading ? 'Loading...' : '🛒 Order Now'}
+            🛒 Order Now
           </button>
           <button
             onClick={scrollToMenu}
