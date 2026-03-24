@@ -58,7 +58,13 @@ export default function Footer() {
             <div className="space-y-2 text-sm text-gray-400 mt-4">
               <p><a href="tel:2066933335" className="hover:text-[#00D4D4] transition-colors">📞 (206) 693-3335</a></p>
               <p><a href="mailto:wallysnwsoul@gmail.com" className="hover:text-[#00D4D4] transition-colors">📧 wallysnwsoul@gmail.com</a></p>
-              <p>📍 2218 S Jackson St<br /><span className="ml-5">Seattle, WA 98144</span></p>
+              <a
+                href="https://maps.google.com/?q=2218+S+Jackson+St+Seattle+WA+98144"
+                target="_blank" rel="noopener noreferrer"
+                className="hover:text-[#00D4D4] transition-colors"
+              >
+                📍 2218 S Jackson St<br /><span className="ml-5">Seattle, WA 98144</span>
+              </a>
             </div>
           </div>
 

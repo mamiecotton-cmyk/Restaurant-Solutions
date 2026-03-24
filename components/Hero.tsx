@@ -150,21 +150,18 @@ export default function Hero() {
           </a>
         </div>
 
-        {/* Info pills */}
+        {/* Info pills (address link + hours) */}
         <div className="flex flex-wrap justify-center gap-3">
-          {[
-            '📍 2218 S Jackson St, Seattle',
-            '🕐 Tue–Sat 12–8pm · Sun 12–6pm',
-            '🎉 Catering Available',
-          ].map(item => (
-            <div key={item} className="px-4 py-2 rounded-full text-sm text-gray-400" style={{
-              border: '1px solid rgba(0,212,212,0.2)',
-              background: 'rgba(0,212,212,0.05)',
-              backdropFilter: 'blur(8px)'
-            }}>
-              {item}
-            </div>
-          ))}
+          <a href="https://maps.google.com/?q=2218+S+Jackson+St+Seattle+WA+98144"
+            target="_blank" rel="noopener noreferrer"
+            className="px-4 py-2 rounded-full text-sm text-gray-400 hover:text-[#00D4D4] transition-colors"
+            style={{ border: '1px solid rgba(0,212,212,0.2)', background: 'rgba(0,212,212,0.05)' }}>
+            📍 2218 S Jackson St, Seattle
+          </a>
+          <div className="px-4 py-2 rounded-full text-sm text-gray-400"
+            style={{ border: '1px solid rgba(0,212,212,0.2)', background: 'rgba(0,212,212,0.05)' }}>
+            🕐 Tue–Sat 12–8pm · Sun 12–6pm
+          </div>
         </div>
       </div>
 
