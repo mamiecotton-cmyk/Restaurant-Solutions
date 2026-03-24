@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
 import MenuCard from './MenuCard'
+import { useCart } from '@/context/CartContext'
 
 const menuItems = [
   {
@@ -11,6 +11,7 @@ const menuItems = [
     price: 2000,
     imageSrc: 'https://images.unsplash.com/photo-1580476262798-bddd9f4b7369?w=800&q=80',
     imageAlt: 'Crispy fried catfish',
+    description: "Southern-style fried catfish, seasoned to perfection",
   },
   {
     id: 'wings',
@@ -19,6 +20,7 @@ const menuItems = [
     price: 1700,
     imageSrc: 'https://images.unsplash.com/photo-1527477396000-e27163b481c2?w=800&q=80',
     imageAlt: 'Soul food chicken wings',
+    description: "Fall-off-the-bone wings with Wally's signature sauce",
   },
   {
     id: 'poboy',
@@ -27,6 +29,7 @@ const menuItems = [
     price: 1900,
     imageSrc: 'https://images.unsplash.com/photo-1606755962773-d324e0a13086?w=800&q=80',
     imageAlt: "Shrimp po' boy sandwich",
+    description: "Crispy shrimp on a toasted hoagie with remoulade",
   },
   {
     id: 'burger',
@@ -35,83 +38,53 @@ const menuItems = [
     price: 1600,
     imageSrc: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&q=80',
     imageAlt: 'Smash burger',
+    description: "Double smash patty with special sauce and pickles",
   },
 ]
 
 export default function Menu() {
-  const [loading, setLoading] = useState(false)
-
-  const handleItemOrder = async (item: typeof menuItems[0]) => {
-    setLoading(true)
-    try {
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: [{ name: item.name, price: item.price, quantity: 1 }],
-        }),
-      })
-      const data = await res.json()
-      if (data.url) window.location.href = data.url
-    } catch (err) {
-      console.error(err)
-      setLoading(false)
-    }
-  }
+  const { setIsOpen, itemCount } = useCart()
 
   return (
-    <section id="menu" className="py-20 px-4 bg-[#0a0a0a]">
+    <section id="menu" className="py-24 px-4" style={{ background: '#070B14' }}>
       <div className="max-w-6xl mx-auto">
-        {/* Section Header */}
-        <div className="text-center mb-14">
-          <p className="text-[#D4AF37] uppercase tracking-[0.3em] text-sm font-bold mb-3">— Fan Favorites —</p>
-          <h2 className="text-4xl md:text-5xl font-black text-white uppercase tracking-tight">
+        <div className="text-center mb-16">
+          <p className="text-sm font-bold uppercase tracking-[0.4em] mb-3"
+            style={{ color: '#00D4D4', textShadow: '0 0 8px rgba(0,212,212,0.6)' }}>
+            — Fan Favorites —
+          </p>
+          <h2 className="text-5xl md:text-6xl font-black uppercase text-white"
+            style={{ fontFamily: 'Georgia, serif' }}>
             The Menu
           </h2>
-          <div className="w-16 h-1 bg-[#D4AF37] mx-auto mt-4 rounded-full" />
+          <div className="flex items-center justify-center gap-3 mt-4">
+            <div className="h-px w-16" style={{ background: 'linear-gradient(to right, transparent, #00D4D4)' }} />
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#D4AF37', boxShadow: '0 0 8px rgba(212,175,55,0.8)' }} />
+            <div className="h-px w-16" style={{ background: 'linear-gradient(to left, transparent, #00D4D4)' }} />
+          </div>
         </div>
 
-        {/* Menu Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {menuItems.map((item) => (
-            <MenuCard
-              key={item.id}
-              name={item.name}
-              priceRange={item.priceRange}
-              imageSrc={item.imageSrc}
-              imageAlt={item.imageAlt}
-              onOrder={() => !loading && handleItemOrder(item)}
-            />
+            <MenuCard key={item.id} {...item} />
           ))}
         </div>
 
-        {/* Full Order CTA */}
-        <div className="text-center mt-12">
-          <p className="text-gray-500 mb-4 text-sm uppercase tracking-widest">Ready to order everything?</p>
-          <button
-            onClick={async () => {
-              setLoading(true)
-              try {
-                const res = await fetch('/api/checkout', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    items: menuItems.map(i => ({ name: i.name, price: i.price, quantity: 1 })),
-                  }),
-                })
-                const data = await res.json()
-                if (data.url) window.location.href = data.url
-              } catch (err) {
-                console.error(err)
-                setLoading(false)
-              }
-            }}
-            disabled={loading}
-            className="bg-[#D4AF37] text-black font-black text-base px-10 py-4 rounded-full uppercase tracking-wider hover:bg-yellow-400 transition-colors duration-200 disabled:opacity-60 min-h-[56px]"
-          >
-            {loading ? 'Loading...' : '🛒 Order the Full Spread'}
-          </button>
-        </div>
+        {itemCount > 0 && (
+          <div className="text-center mt-14">
+            <button
+              onClick={() => setIsOpen(true)}
+              className="font-black text-base px-10 py-4 rounded-full uppercase tracking-wider transition-all duration-200 min-h-[56px]"
+              style={{
+                backgroundColor: '#00D4D4',
+                color: '#050810',
+                boxShadow: '0 0 25px rgba(0,212,212,0.6)'
+              }}
+            >
+              🛒 View Cart ({itemCount} {itemCount === 1 ? 'item' : 'items'})
+            </button>
+          </div>
+        )}
       </div>
     </section>
   )
