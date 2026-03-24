@@ -13,10 +13,10 @@ export default function Story() {
             </p>
             <h2 className="text-5xl md:text-6xl font-black uppercase text-white leading-tight"
               style={{ fontFamily: 'Georgia, serif' }}>
-              From the Community,
+              Bringing Culture Back
               <br />
               <span style={{ color: '#D4AF37', textShadow: '0 0 15px rgba(212,175,55,0.4)' }}>
-                For the Community
+                to the CD
               </span>
             </h2>
             <div className="flex items-center justify-center gap-3 mt-6">
@@ -26,60 +26,85 @@ export default function Story() {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-12 items-center">
+          <div className="grid md:grid-cols-2 gap-12 items-start">
             <div>
               <p className="text-gray-300 text-lg leading-relaxed mb-6">
-                Wally&apos;s NW Soul was born from a love of culture, family, and the kind of food that
-                makes you feel at home no matter where you are. Since 2011, every dish has carried
-                the tradition of Southern soul food — reimagined for the Pacific Northwest.
+                Chef Wally Washington started cooking at age 10 in his grandmother&apos;s kitchen,
+                absorbing her Southern traditions. For over 15 years he served the community
+                through catering and pop-up spots before opening Seattle&apos;s most exciting
+                soul food destination in fall 2025.
+              </p>
+              <p className="text-gray-500 text-base leading-relaxed mb-6">
+                Located in the heart of Seattle&apos;s Central District — in the historic space of
+                the beloved Catfish Corner — Wally&apos;s is more than a restaurant. It&apos;s a
+                homecoming. &ldquo;In Washington, we have our own taste. Our own flavors. Our own
+                ingredients. Our own blends.&rdquo;
               </p>
               <p className="text-gray-500 text-base leading-relaxed mb-8">
-                From our crispy catfish to our fall-off-the-bone wings, every plate is made with
-                care, intention, and real ingredients. This isn&apos;t fast food — it&apos;s food
-                that feeds your soul.
+                Every ingredient is sourced intentionally, many from Black-owned vendors,
+                honoring the community that raised him.
               </p>
               <a
                 href="https://www.instagram.com/wallys_nw_soul/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 font-bold transition-colors"
-                style={{ color: '#00D4D4', textShadow: '0 0 8px rgba(0,212,212,0.4)' }}
+                style={{ color: '#00D4D4' }}
               >
-                <span>Follow the story on Instagram @wallys_nw_soul</span>
+                <span>Follow @wallys_nw_soul on Instagram</span>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
               </a>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              {[
-                { emoji: '🐟', label: 'Fresh Fish', desc: 'Never frozen, always fresh' },
-                { emoji: '🔥', label: 'Made to Order', desc: 'Cooked fresh every time' },
-                { emoji: '🌿', label: 'Real Ingredients', desc: 'No shortcuts, ever' },
-                { emoji: '❤️', label: 'Community First', desc: 'Built for the neighborhood' },
-              ].map((item) => (
-                <div
-                  key={item.label}
-                  className="rounded-2xl p-5 text-center transition-all duration-300"
-                  style={{
-                    background: '#0D1220',
-                    border: '1px solid rgba(0,212,212,0.1)',
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.border = '1px solid rgba(0,212,212,0.4)'
-                    e.currentTarget.style.boxShadow = '0 0 15px rgba(0,212,212,0.1)'
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.border = '1px solid rgba(0,212,212,0.1)'
-                    e.currentTarget.style.boxShadow = 'none'
-                  }}
-                >
-                  <span className="text-3xl mb-3 block">{item.emoji}</span>
-                  <p className="text-white font-bold text-sm uppercase tracking-wide">{item.label}</p>
-                  <p className="text-gray-600 text-xs mt-1">{item.desc}</p>
+            <div className="space-y-4">
+              {/* Hours */}
+              <div className="rounded-2xl p-6" style={{ background: '#0D1220', border: '1px solid rgba(0,212,212,0.15)' }}>
+                <h3 className="text-white font-black uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <span style={{ color: '#00D4D4' }}>🕐</span> Hours
+                </h3>
+                <div className="space-y-2 text-sm">
+                  {[
+                    { day: 'Monday', hours: 'Closed', closed: true },
+                    { day: 'Tuesday – Saturday', hours: '12:00 PM – 8:00 PM', closed: false },
+                    { day: 'Sunday', hours: '12:00 PM – 6:00 PM', closed: false },
+                  ].map(item => (
+                    <div key={item.day} className="flex justify-between items-center py-1" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      <span className="text-gray-400">{item.day}</span>
+                      <span className={item.closed ? 'text-red-500' : 'text-gray-200'} style={!item.closed ? { color: '#D4AF37' } : {}}>
+                        {item.hours}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
+
+              {/* Values */}
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { emoji: '👴🏾', label: 'Est. 2011', desc: '15+ years serving Seattle' },
+                  { emoji: '🖤', label: 'Black-Owned', desc: 'Rooted in community' },
+                  { emoji: '🌿', label: 'Real Ingredients', desc: 'Local & intentional' },
+                  { emoji: '❤️', label: 'Central District', desc: 'Bringing culture home' },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-2xl p-4 text-center transition-all duration-300"
+                    style={{ background: '#0D1220', border: '1px solid rgba(0,212,212,0.1)' }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.border = '1px solid rgba(0,212,212,0.4)'
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.border = '1px solid rgba(0,212,212,0.1)'
+                    }}
+                  >
+                    <span className="text-2xl mb-2 block">{item.emoji}</span>
+                    <p className="text-white font-bold text-xs uppercase tracking-wide">{item.label}</p>
+                    <p className="text-gray-600 text-xs mt-1">{item.desc}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -97,15 +122,15 @@ export default function Story() {
             Catering
           </h2>
           <p className="text-gray-400 text-lg leading-relaxed mb-12 max-w-2xl mx-auto">
-            Bringing Wally&apos;s soul food to your event, corporate gathering, wedding, or celebration.
-            We bring the flavor — you bring the people.
+            Chef Wally brings his legendary soul food to your event.
+            15+ years of catering experience — from intimate gatherings to large celebrations.
           </p>
 
           <div className="grid sm:grid-cols-3 gap-6 mb-12">
             {[
               { icon: '🎉', title: 'Events & Parties', desc: 'Birthdays, graduations, celebrations of all kinds' },
               { icon: '🏢', title: 'Corporate', desc: 'Office lunches, team meetings, company events' },
-              { icon: '💍', title: 'Weddings', desc: 'Make your special day unforgettable with soul food' },
+              { icon: '💍', title: 'Weddings', desc: 'Make your special day unforgettable' },
             ].map(item => (
               <div key={item.title} className="rounded-2xl p-6"
                 style={{ background: '#0D1220', border: '1px solid rgba(212,175,55,0.2)' }}>
@@ -119,11 +144,7 @@ export default function Story() {
           <a
             href="mailto:wallysnwsoul@gmail.com"
             className="inline-flex items-center gap-3 font-black text-lg px-12 py-5 rounded-full uppercase tracking-wider transition-all duration-200 active:scale-95"
-            style={{
-              backgroundColor: '#D4AF37',
-              color: '#050810',
-              boxShadow: '0 0 25px rgba(212,175,55,0.5)'
-            }}
+            style={{ backgroundColor: '#D4AF37', color: '#050810', boxShadow: '0 0 25px rgba(212,175,55,0.5)' }}
           >
             📧 Get a Catering Quote
           </a>

@@ -14,8 +14,8 @@ export default function Hero() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items: [
-            { name: 'Crispy Catfish', price: 2000, quantity: 1 },
-            { name: 'Soul Wings', price: 1700, quantity: 1 },
+            { name: "Catfish Po'Boy", price: 1650, quantity: 1 },
+            { name: 'Garlic Butter Wings', price: 1700, quantity: 1 },
           ],
         }),
       })
@@ -65,7 +65,7 @@ export default function Hero() {
       {/* Content */}
       <div className="relative z-10 text-center px-4 max-w-5xl mx-auto pt-28 pb-16">
 
-        {/* Logo with neon glow */}
+        {/* Logo */}
         <div className="flex justify-center mb-10">
           <div className="relative">
             <div className="absolute inset-0 rounded-full" style={{
@@ -76,10 +76,10 @@ export default function Hero() {
             <Image
               src="/Wallys_Logo.jpg"
               alt="Wally's NW Soul Experience"
-              width={220}
-              height={220}
+              width={320}
+              height={320}
               className="rounded-full relative z-10"
-              style={{ filter: 'drop-shadow(0 0 25px rgba(0,212,212,0.7)) drop-shadow(0 0 50px rgba(0,212,212,0.3))' }}
+              style={{ filter: 'drop-shadow(0 0 30px rgba(0,212,212,0.8)) drop-shadow(0 0 60px rgba(0,212,212,0.4))' }}
               priority
             />
           </div>
@@ -154,7 +154,7 @@ export default function Hero() {
         <div className="flex flex-wrap justify-center gap-3">
           {[
             '📍 2218 S Jackson St, Seattle',
-            '🍽️ Dine-In & Takeout',
+            '🕐 Tue–Sat 12–8pm · Sun 12–6pm',
             '🎉 Catering Available',
           ].map(item => (
             <div key={item} className="px-4 py-2 rounded-full text-sm text-gray-400" style={{

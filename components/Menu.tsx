@@ -6,39 +6,75 @@ import { useCart } from '@/context/CartContext'
 const menuItems = [
   {
     id: 'catfish',
-    name: 'Crispy Catfish',
-    priceRange: '$18 – $25',
-    price: 2000,
+    name: "Catfish Po'Boy",
+    priceRange: '$16.50',
+    price: 1650,
     imageSrc: 'https://images.unsplash.com/photo-1580476262798-bddd9f4b7369?w=800&q=80',
-    imageAlt: 'Crispy fried catfish',
-    description: "Southern-style fried catfish, seasoned to perfection",
+    imageAlt: 'Crispy fried catfish po boy',
+    description: "Seasoned catfish on a toasted hoagie with hush puppies & tangy sauce",
   },
   {
     id: 'wings',
-    name: 'Soul Wings',
-    priceRange: '$14 – $20',
+    name: 'Garlic Butter Wings',
+    priceRange: '$17.00',
     price: 1700,
     imageSrc: 'https://images.unsplash.com/photo-1527477396000-e27163b481c2?w=800&q=80',
-    imageAlt: 'Soul food chicken wings',
-    description: "Fall-off-the-bone wings with Wally's signature sauce",
+    imageAlt: 'Garlic butter wings',
+    description: "Juicy wings tossed in Wally's rich garlic butter sauce",
   },
   {
-    id: 'poboy',
-    name: "Shrimp Po' Boy",
-    priceRange: '$16 – $22',
-    price: 1900,
-    imageSrc: 'https://images.unsplash.com/photo-1606755962773-d324e0a13086?w=800&q=80',
-    imageAlt: "Shrimp po' boy sandwich",
-    description: "Crispy shrimp on a toasted hoagie with remoulade",
+    id: 'chicken',
+    name: 'Fried Chicken Dinner',
+    priceRange: '$20.00',
+    price: 2000,
+    imageSrc: 'https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?w=800&q=80',
+    imageAlt: 'Fried chicken dinner with sides',
+    description: "Crispy fried chicken served with 2 classic sides",
   },
   {
-    id: 'burger',
-    name: 'Smash Burger',
-    priceRange: '$14 – $18',
-    price: 1600,
-    imageSrc: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&q=80',
-    imageAlt: 'Smash burger',
-    description: "Double smash patty with special sauce and pickles",
+    id: 'turkey',
+    name: 'Turkey Bowl',
+    priceRange: '$15.00',
+    price: 1500,
+    imageSrc: 'https://images.unsplash.com/photo-1574484284002-952d92456975?w=800&q=80',
+    imageAlt: 'Turkey bowl',
+    description: "Smoked turkey over rice with greens and house sauce",
+  },
+  {
+    id: 'jambalaya',
+    name: 'Jambalaya',
+    priceRange: '$13.00',
+    price: 1300,
+    imageSrc: 'https://images.unsplash.com/photo-1563379926898-05f4575a45d8?w=800&q=80',
+    imageAlt: 'Jambalaya',
+    description: "Pacific Northwest spin on a Southern classic",
+  },
+  {
+    id: 'mac',
+    name: 'Mac & Cheese',
+    priceRange: '$6.00',
+    price: 600,
+    imageSrc: 'https://images.unsplash.com/photo-1574894709920-11b28e7367e3?w=800&q=80',
+    imageAlt: 'Baked mac and cheese',
+    description: "Baked to perfection with a golden top — a fan favorite side",
+  },
+  {
+    id: 'cobbler',
+    name: 'Peach Cobbler Cheesecake',
+    priceRange: '$12.50',
+    price: 1250,
+    imageSrc: 'https://images.unsplash.com/photo-1551024601-bec78aea704b?w=800&q=80',
+    imageAlt: 'Peach cobbler cheesecake',
+    description: "Peach cobbler meets creamy cheesecake — pure soul",
+  },
+  {
+    id: 'koolaid',
+    name: 'Mango Kool-Aid',
+    priceRange: '$3.00',
+    price: 300,
+    imageSrc: 'https://images.unsplash.com/photo-1544145945-f90425340c7e?w=800&q=80',
+    imageAlt: 'Mango Kool-Aid drink',
+    description: "House-made mango Kool-Aid — the perfect pairing",
   },
 ]
 
@@ -75,11 +111,7 @@ export default function Menu() {
             <button
               onClick={() => setIsOpen(true)}
               className="font-black text-base px-10 py-4 rounded-full uppercase tracking-wider transition-all duration-200 min-h-[56px]"
-              style={{
-                backgroundColor: '#00D4D4',
-                color: '#050810',
-                boxShadow: '0 0 25px rgba(0,212,212,0.6)'
-              }}
+              style={{ backgroundColor: '#00D4D4', color: '#050810', boxShadow: '0 0 25px rgba(0,212,212,0.6)' }}
             >
               🛒 View Cart ({itemCount} {itemCount === 1 ? 'item' : 'items'})
             </button>

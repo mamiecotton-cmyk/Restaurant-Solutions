@@ -1,5 +1,3 @@
-"use client"
-
 import Image from 'next/image'
 
 export default function Footer() {
@@ -46,31 +44,28 @@ export default function Footer() {
             </a>
           </div>
 
-          {/* Contact */}
+          {/* Hours & Contact */}
           <div>
-            <h4 className="text-white font-black uppercase tracking-widest text-sm mb-6"
-              style={{ color: '#D4AF37' }}>Contact</h4>
-            <div className="space-y-3 text-sm text-gray-400">
-              <p>
-                <a href="tel:2066933335" className="hover:text-[#00D4D4] transition-colors">
-                  📞 (206) 693-3335
-                </a>
-              </p>
-              <p>
-                <a href="mailto:wallysnwsoul@gmail.com" className="hover:text-[#00D4D4] transition-colors">
-                  📧 wallysnwsoul@gmail.com
-                </a>
-              </p>
-              <p>📍 2218 S Jackson St<br />
-                <span className="ml-5">Seattle, WA 98144</span>
-              </p>
+            <h4 className="font-black uppercase tracking-widest text-sm mb-6" style={{ color: '#D4AF37' }}>
+              Hours & Contact
+            </h4>
+            <div className="space-y-2 text-sm text-gray-400 mb-4">
+              <p><span className="text-gray-600">Mon</span> — <span className="text-red-500">Closed</span></p>
+              <p><span className="text-gray-600">Tue–Sat</span> — <span style={{ color: '#D4AF37' }}>12pm–8pm</span></p>
+              <p><span className="text-gray-600">Sun</span> — <span style={{ color: '#D4AF37' }}>12pm–6pm</span></p>
+            </div>
+            <div className="space-y-2 text-sm text-gray-400 mt-4">
+              <p><a href="tel:2066933335" className="hover:text-[#00D4D4] transition-colors">📞 (206) 693-3335</a></p>
+              <p><a href="mailto:wallysnwsoul@gmail.com" className="hover:text-[#00D4D4] transition-colors">📧 wallysnwsoul@gmail.com</a></p>
+              <p>📍 2218 S Jackson St<br /><span className="ml-5">Seattle, WA 98144</span></p>
             </div>
           </div>
 
-          {/* Links */}
+          {/* Quick Links */}
           <div>
-            <h4 className="text-white font-black uppercase tracking-widest text-sm mb-6"
-              style={{ color: '#D4AF37' }}>Quick Links</h4>
+            <h4 className="font-black uppercase tracking-widest text-sm mb-6" style={{ color: '#D4AF37' }}>
+              Quick Links
+            </h4>
             <div className="space-y-3 text-sm">
               {[
                 { label: 'Menu', id: 'menu' },
@@ -86,11 +81,21 @@ export default function Footer() {
                   </button>
                 </div>
               ))}
+              <div>
+                <a
+                  href="https://www.instagram.com/wallys_nw_soul/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-400 hover:text-[#00D4D4] transition-colors uppercase tracking-wider text-xs font-bold"
+                >
+                  Instagram
+                </a>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Bottom bar */}
+        {/* Bottom */}
         <div className="pt-8 flex flex-col md:flex-row justify-between items-center gap-4"
           style={{ borderTop: '1px solid rgba(0,212,212,0.08)' }}>
           <p className="text-gray-700 text-xs uppercase tracking-widest">
