@@ -6,12 +6,12 @@ import { useCart } from '@/context/CartContext'
 const menuItems = [
   {
     id: 'catfish',
-    name: "Catfish Po'Boy",
-    priceRange: '$16.50',
-    price: 1650,
+    name: "Catfish Dinner",
+    priceRange: '$26.50',
+    price: 2650,
     imageSrc: '/Catfish_Dinner.png',
     imageAlt: 'Crispy fried catfish po boy',
-    description: "Seasoned catfish on a toasted hoagie with hush puppies & tangy sauce",
+    description: "Seasoned catfish with your choice of 2 side with hush puppies & tangy sauce",
   },
   {
     id: 'wings',
