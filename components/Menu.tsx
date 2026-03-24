@@ -9,7 +9,7 @@ const menuItems = [
     name: "Catfish Po'Boy",
     priceRange: '$16.50',
     price: 1650,
-    imageSrc: 'https://images.unsplash.com/photo-1580476262798-bddd9f4b7369?w=800&q=80',
+    imageSrc: '/Catfish_Dinner.png',
     imageAlt: 'Crispy fried catfish po boy',
     description: "Seasoned catfish on a toasted hoagie with hush puppies & tangy sauce",
   },
