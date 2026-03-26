@@ -34,8 +34,6 @@ const NEXT_STATUSES: Record<string, string[]> = {
 function playNotificationSound() {
   try {
     const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
-
-    // Play 3 short beeps
     const beepTimes = [0, 0.2, 0.4]
     beepTimes.forEach((startTime) => {
       const oscillator = audioCtx.createOscillator()
@@ -53,6 +51,143 @@ function playNotificationSound() {
   }
 }
 
+function printOrderReceipt(order: Order) {
+  const itemsHtml = order.items
+    .map(
+      (item) =>
+        `<tr>
+          <td style="text-align:left;padding:4px 0;">${item.quantity}x ${item.name}</td>
+          <td style="text-align:right;padding:4px 0;">$${(item.amount / 100).toFixed(2)}</td>
+        </tr>`
+    )
+    .join('')
+
+  const receiptHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Order Receipt</title>
+      <style>
+        @page {
+          margin: 0;
+          size: 80mm auto;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+          font-family: 'Courier New', monospace;
+          width: 80mm;
+          padding: 8mm 4mm;
+          font-size: 12px;
+          color: #000;
+        }
+        .header {
+          text-align: center;
+          border-bottom: 2px dashed #000;
+          padding-bottom: 8px;
+          margin-bottom: 8px;
+        }
+        .header h1 {
+          font-size: 18px;
+          font-weight: bold;
+          margin-bottom: 2px;
+        }
+        .header p {
+          font-size: 10px;
+        }
+        .order-info {
+          border-bottom: 1px dashed #000;
+          padding-bottom: 8px;
+          margin-bottom: 8px;
+        }
+        .order-info p {
+          margin-bottom: 2px;
+        }
+        .label {
+          font-weight: bold;
+          font-size: 11px;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .items-table {
+          border-bottom: 1px dashed #000;
+          padding-bottom: 8px;
+          margin-bottom: 8px;
+        }
+        .total-row td {
+          font-weight: bold;
+          font-size: 16px;
+          padding-top: 8px;
+          border-top: 2px dashed #000;
+        }
+        .footer {
+          text-align: center;
+          margin-top: 12px;
+          font-size: 10px;
+        }
+        .order-number {
+          font-size: 14px;
+          font-weight: bold;
+          text-align: center;
+          padding: 6px 0;
+          border: 2px solid #000;
+          margin-bottom: 8px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>WALLY'S NW SOUL</h1>
+        <p>Northwest Soul. Real Flavor.</p>
+      </div>
+
+      <div class="order-number">
+        ORDER #${order.id.slice(0, 8).toUpperCase()}
+      </div>
+
+      <div class="order-info">
+        <p><span class="label">Date:</span> ${new Date(order.created_at).toLocaleString()}</p>
+        ${order.customer_name ? `<p><span class="label">Customer:</span> ${order.customer_name}</p>` : ''}
+        ${order.customer_email ? `<p><span class="label">Email:</span> ${order.customer_email}</p>` : ''}
+      </div>
+
+      <div class="items-table">
+        <table>
+          <tbody>
+            ${itemsHtml}
+          </tbody>
+        </table>
+      </div>
+
+      <table>
+        <tbody>
+          <tr class="total-row">
+            <td style="text-align:left;">TOTAL</td>
+            <td style="text-align:right;">$${(order.amount_total / 100).toFixed(2)}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="footer">
+        <p>Thank you for your order!</p>
+        <p>Follow us @wallys_nw_soul</p>
+      </div>
+    </body>
+    </html>
+  `
+
+  const printWindow = window.open('', '_blank', 'width=320,height=600')
+  if (printWindow) {
+    printWindow.document.write(receiptHtml)
+    printWindow.document.close()
+    setTimeout(() => {
+      printWindow.print()
+      setTimeout(() => printWindow.close(), 2000)
+    }, 500)
+  }
+}
+
 function isOlderThanMinutes(dateStr: string, minutes: number): boolean {
   const created = new Date(dateStr).getTime()
   const now = Date.now()
@@ -64,10 +199,10 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('active')
   const [now, setNow] = useState(Date.now())
+  const [autoPrint, setAutoPrint] = useState(true)
   const knownOrderIds = useRef<Set<string>>(new Set())
   const isFirstLoad = useRef(true)
 
-  // Tick every 5s to re-evaluate flashing
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 5000)
     return () => clearInterval(timer)
@@ -78,17 +213,20 @@ export default function AdminPage() {
       const res = await fetch('/api/orders')
       const data = await res.json()
       if (Array.isArray(data)) {
-        // Check for new orders (not seen before)
         if (!isFirstLoad.current) {
           const newIncoming = data.filter(
             (o: Order) => o.status === 'new' && !knownOrderIds.current.has(o.id)
           )
           if (newIncoming.length > 0) {
             playNotificationSound()
+            if (autoPrint) {
+              newIncoming.forEach((order: Order) => {
+                printOrderReceipt(order)
+              })
+            }
           }
         }
 
-        // Update known IDs
         data.forEach((o: Order) => knownOrderIds.current.add(o.id))
         isFirstLoad.current = false
         setOrders(data)
@@ -98,7 +236,7 @@ export default function AdminPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [autoPrint])
 
   useEffect(() => {
     fetchOrders()
@@ -106,16 +244,16 @@ export default function AdminPage() {
     return () => clearInterval(interval)
   }, [fetchOrders])
 
-  const updateStatus = async (id: string, status: string) => {
+  const updateStatus = async (id: string, newStatus: string) => {
     try {
       const res = await fetch(`/api/orders/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status: newStatus }),
       })
       if (res.ok) {
         setOrders((prev) =>
-          prev.map((o) => (o.id === id ? { ...o, status: status as Order['status'] } : o))
+          prev.map((o) => (o.id === id ? { ...o, status: newStatus as Order['status'] } : o))
         )
       }
     } catch (err) {
@@ -133,7 +271,6 @@ export default function AdminPage() {
 
   return (
     <main className="bg-[#0a0a0a] min-h-screen px-4 py-8">
-      {/* Flashing keyframes */}
       <style jsx global>{`
         @keyframes urgentFlash {
           0%, 100% { border-color: rgba(239, 68, 68, 0.7); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
@@ -160,12 +297,24 @@ export default function AdminPage() {
               )}
             </p>
           </div>
-          <button
-            onClick={() => { setLoading(true); fetchOrders() }}
-            className="text-sm bg-[#1a1a1a] border border-white/10 text-gray-300 px-4 py-2 rounded-lg hover:border-[#D4AF37]/50 transition-colors"
-          >
-            ↻ Refresh
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setAutoPrint(!autoPrint)}
+              className={`text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-lg border transition-colors ${
+                autoPrint
+                  ? 'bg-green-900/40 border-green-500/50 text-green-300'
+                  : 'bg-[#1a1a1a] border-white/10 text-gray-500'
+              }`}
+            >
+              🖨️ Auto-Print {autoPrint ? 'ON' : 'OFF'}
+            </button>
+            <button
+              onClick={() => { setLoading(true); fetchOrders() }}
+              className="text-sm bg-[#1a1a1a] border border-white/10 text-gray-300 px-4 py-2 rounded-lg hover:border-[#D4AF37]/50 transition-colors"
+            >
+              ↻ Refresh
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -252,23 +401,27 @@ export default function AdminPage() {
                     </div>
 
                     {/* Actions */}
-                    {nextStatuses.length > 0 && (
-                      <div className="flex sm:flex-col gap-2 items-start sm:items-end justify-end">
-                        {nextStatuses.map((s) => (
-                          <button
-                            key={s}
-                            onClick={() => updateStatus(order.id, s)}
-                            className={`text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-lg transition-colors ${
-                              s === 'cancelled'
-                                ? 'bg-red-900/50 text-red-300 hover:bg-red-800/60'
-                                : 'bg-[#D4AF37]/20 text-[#D4AF37] hover:bg-[#D4AF37]/30'
-                            }`}
-                          >
-                            → {STATUS_CONFIG[s].label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                    <div className="flex sm:flex-col gap-2 items-start sm:items-end justify-end">
+                      <button
+                        onClick={() => printOrderReceipt(order)}
+                        className="text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-lg bg-green-900/50 text-green-300 hover:bg-green-800/60 transition-colors"
+                      >
+                        🖨️ Print
+                      </button>
+                      {nextStatuses.map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => updateStatus(order.id, s)}
+                          className={`text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-lg transition-colors ${
+                            s === 'cancelled'
+                              ? 'bg-red-900/50 text-red-300 hover:bg-red-800/60'
+                              : 'bg-[#D4AF37]/20 text-[#D4AF37] hover:bg-[#D4AF37]/30'
+                          }`}
+                        >
+                          → {STATUS_CONFIG[s].label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Order ID */}
