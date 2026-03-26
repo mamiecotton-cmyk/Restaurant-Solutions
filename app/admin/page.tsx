@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 
 interface Order {
   id: string
@@ -31,16 +31,68 @@ const NEXT_STATUSES: Record<string, string[]> = {
   cancelled: [],
 }
 
+function playNotificationSound() {
+  try {
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
+
+    // Play 3 short beeps
+    const beepTimes = [0, 0.2, 0.4]
+    beepTimes.forEach((startTime) => {
+      const oscillator = audioCtx.createOscillator()
+      const gainNode = audioCtx.createGain()
+      oscillator.connect(gainNode)
+      gainNode.connect(audioCtx.destination)
+      oscillator.frequency.value = 880
+      oscillator.type = 'sine'
+      gainNode.gain.value = 0.3
+      oscillator.start(audioCtx.currentTime + startTime)
+      oscillator.stop(audioCtx.currentTime + startTime + 0.12)
+    })
+  } catch (e) {
+    console.warn('Could not play notification sound:', e)
+  }
+}
+
+function isOlderThanMinutes(dateStr: string, minutes: number): boolean {
+  const created = new Date(dateStr).getTime()
+  const now = Date.now()
+  return now - created > minutes * 60 * 1000
+}
+
 export default function AdminPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('active')
+  const [now, setNow] = useState(Date.now())
+  const knownOrderIds = useRef<Set<string>>(new Set())
+  const isFirstLoad = useRef(true)
+
+  // Tick every 5s to re-evaluate flashing
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 5000)
+    return () => clearInterval(timer)
+  }, [])
 
   const fetchOrders = useCallback(async () => {
     try {
       const res = await fetch('/api/orders')
       const data = await res.json()
-      if (Array.isArray(data)) setOrders(data)
+      if (Array.isArray(data)) {
+        // Check for new orders (not seen before)
+        if (!isFirstLoad.current) {
+          const newIncoming = data.filter(
+            (o: Order) => o.status === 'new' && !knownOrderIds.current.has(o.id)
+          )
+          if (newIncoming.length > 0) {
+            playNotificationSound()
+          }
+        }
+
+        // Update known IDs
+        data.forEach((o: Order) => knownOrderIds.current.add(o.id))
+        isFirstLoad.current = false
+        setOrders(data)
+      }
     } catch (err) {
       console.error('Failed to fetch orders:', err)
     } finally {
@@ -50,7 +102,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     fetchOrders()
-    const interval = setInterval(fetchOrders, 10000) // poll every 10s
+    const interval = setInterval(fetchOrders, 10000)
     return () => clearInterval(interval)
   }, [fetchOrders])
 
@@ -81,6 +133,17 @@ export default function AdminPage() {
 
   return (
     <main className="bg-[#0a0a0a] min-h-screen px-4 py-8">
+      {/* Flashing keyframes */}
+      <style jsx global>{`
+        @keyframes urgentFlash {
+          0%, 100% { border-color: rgba(239, 68, 68, 0.7); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+          50% { border-color: rgba(239, 68, 68, 1); box-shadow: 0 0 20px 4px rgba(239, 68, 68, 0.4); }
+        }
+        .flash-urgent {
+          animation: urgentFlash 1s ease-in-out infinite;
+        }
+      `}</style>
+
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
@@ -135,21 +198,28 @@ export default function AdminPage() {
             {filteredOrders.map((order) => {
               const config = STATUS_CONFIG[order.status]
               const nextStatuses = NEXT_STATUSES[order.status]
+              const isUrgent = order.status === 'new' && isOlderThanMinutes(order.created_at, 2)
+
               return (
                 <div
                   key={order.id}
-                  className={`border rounded-2xl p-5 ${config.bg} transition-all`}
+                  className={`border rounded-2xl p-5 transition-all ${config.bg} ${isUrgent ? 'flash-urgent border-2' : ''}`}
                 >
                   <div className="flex flex-col sm:flex-row justify-between gap-4">
                     {/* Order Info */}
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className={`font-bold text-sm ${config.color}`}>
-                          {config.label}
+                      <div className="flex items-center gap-3 mb-2 flex-wrap">
+                        <span className={`font-bold text-sm ${isUrgent ? 'text-red-400' : config.color}`}>
+                          {isUrgent ? '🚨 URGENT — New' : config.label}
                         </span>
                         <span className="text-gray-600 text-xs">
                           {new Date(order.created_at).toLocaleString()}
                         </span>
+                        {isUrgent && (
+                          <span className="text-red-400 text-xs font-bold">
+                            {Math.floor((now - new Date(order.created_at).getTime()) / 60000)}m waiting
+                          </span>
+                        )}
                       </div>
 
                       {order.customer_name && (
