@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import ConditionalHeader from '@/components/ConditionalHeader'
+import ConditionalPadding from '@/components/ConditionalPadding'
 import { CartProvider } from '@/context/CartContext'
-import Cart from '@/components/Cart'
-import Header from '@/components/Header'
 
 export const metadata: Metadata = {
   title: "Wally's NW Soul | Northwest Soul. Real Flavor.",
@@ -23,9 +23,10 @@ export default function RootLayout({
     <html lang="en">
       <body className="bg-[#0a0a0a] text-white antialiased">
         <CartProvider>
-          <Header />
-          {children}
-          <Cart />
+          <ConditionalHeader />
+          <ConditionalPadding>
+            {children}
+          </ConditionalPadding>
         </CartProvider>
       </body>
     </html>
