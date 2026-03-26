@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { supabase } from '@/lib/supabase'
+import { getSupabase } from '@/lib/supabase'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
 export async function POST(req: Request) {
+  const supabase = getSupabase()
   const body = await req.text()
   const sig = req.headers.get('stripe-signature')!
 
