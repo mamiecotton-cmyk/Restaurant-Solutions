@@ -11,7 +11,7 @@ const menuItems = [
     price: 2650,
     imageSrc: '/Catfish_Dinner.png',
     imageAlt: 'Crispy fried catfish po boy',
-    description: "Seasoned catfish with your choice of 2 side with hush puppies & tangy sauce",
+    description: "Seasoned catfish with your choice of 2 sides with hush puppies & tangy sauce",
   },
   {
     id: 'wings',
