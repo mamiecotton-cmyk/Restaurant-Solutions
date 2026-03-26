@@ -224,7 +224,6 @@ export default function AdminPage() {
             <h1 className="text-xl font-black text-[#D4AF37] uppercase tracking-wide">
               Orders
             </h1>
-            {/* Live counters */}
             <div className="flex gap-2">
               {newCount > 0 && (
                 <span className="bg-yellow-600 text-black text-xs font-black px-2 py-1 rounded-full">
@@ -305,7 +304,7 @@ export default function AdminPage() {
                 >
                   {/* Top: Status + Time */}
                   <div>
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-1">
                       <span className={`font-black text-[11px] uppercase ${isUrgent ? 'text-red-400' : config.color}`}>
                         {isUrgent ? '🚨 URGENT' : config.label}
                       </span>
@@ -315,29 +314,29 @@ export default function AdminPage() {
                     </div>
 
                     {/* Order number */}
-                    <p className="text-[#D4AF37] font-black text-xs mb-1">
+                    <p className="text-[#D4AF37] font-black text-sm mb-1">
                       #{order.id.slice(0, 6).toUpperCase()}
                     </p>
 
-                    {/* Customer */}
+                    {/* Customer - small */}
                     {order.customer_name && (
-                      <p className="text-white font-semibold text-xs truncate mb-2">
+                      <p className="text-gray-500 text-[10px] truncate mb-2">
                         {order.customer_name}
                       </p>
                     )}
 
-                    {/* Items */}
-                    <div className="space-y-0.5 mb-2">
+                    {/* Items - big and bold */}
+                    <div className="space-y-1 mb-2">
                       {order.items.map((item, i) => (
-                        <p key={i} className="text-gray-300 text-[11px] leading-tight truncate">
+                        <p key={i} className="text-white font-bold text-sm leading-tight">
                           {item.quantity}× {item.name}
                         </p>
                       ))}
                     </div>
 
                     {/* Total */}
-                    <div className="border-t border-white/10 pt-1.5 mb-2">
-                      <p className="text-[#D4AF37] font-black text-sm">
+                    <div className="border-t border-white/10 pt-2 mb-3">
+                      <p className="text-[#D4AF37] font-black text-lg">
                         ${(order.amount_total / 100).toFixed(2)}
                       </p>
                     </div>
@@ -345,7 +344,6 @@ export default function AdminPage() {
 
                   {/* Bottom: Actions */}
                   <div className="flex flex-col gap-1.5">
-                    {/* Reprint button */}
                     <button
                       onClick={() => printOrderReceipt(order)}
                       className="w-full text-[10px] font-bold uppercase px-2 py-1.5 rounded-lg bg-green-900/50 text-green-300 hover:bg-green-800/60 transition-colors"
@@ -353,7 +351,6 @@ export default function AdminPage() {
                       🖨️ Print
                     </button>
 
-                    {/* Status buttons */}
                     {nextStatuses.map((s) => (
                       <button
                         key={s}
