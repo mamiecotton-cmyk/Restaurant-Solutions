@@ -23,6 +23,13 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
   cancelled: { label: '❌ CANCEL', color: 'text-red-400', bg: 'bg-red-900/40', border: 'border-red-500/50' },
 }
 
+const NEXT_STATUS_LABELS: Record<string, string> = {
+  preparing: '→ START PREP',
+  ready: '→ MARK READY',
+  completed: '→ COMPLETE',
+  cancelled: '✕ CANCEL',
+}
+
 const NEXT_STATUSES: Record<string, string[]> = {
   new: ['preparing', 'cancelled'],
   preparing: ['ready', 'cancelled'],
@@ -129,8 +136,8 @@ function isOlderThanMinutes(dateStr: string, minutes: number): boolean {
 
 function timeAgo(dateStr: string, now: number): string {
   const diff = Math.floor((now - new Date(dateStr).getTime()) / 60000)
-  if (diff < 1) return 'just now'
-  return `${diff}m ago`
+  if (diff < 1) return 'now'
+  return `${diff}m`
 }
 
 export default function AdminPage() {
@@ -302,9 +309,9 @@ export default function AdminPage() {
                     isUrgent ? 'flash-urgent border-red-500 border-2' : ''
                   }`}
                 >
-                  {/* Top: Status + Time */}
+                  {/* Top bar: Status + Time */}
                   <div>
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center justify-between mb-2">
                       <span className={`font-black text-[11px] uppercase ${isUrgent ? 'text-red-400' : config.color}`}>
                         {isUrgent ? '🚨 URGENT' : config.label}
                       </span>
@@ -313,57 +320,59 @@ export default function AdminPage() {
                       </span>
                     </div>
 
-                    {/* Order number - small muted */}
-                    <p className="text-gray-500 font-mono text-[10px] mb-0.5">
-                      #{order.id.slice(0, 6).toUpperCase()}
-                    </p>
-
-                    {/* Customer - small muted */}
-                    {order.customer_name && (
-                      <p className="text-gray-500 text-[10px] truncate mb-2">
-                        {order.customer_name}
-                      </p>
-                    )}
-
-                    {/* Items - BIG and bold, the main focus */}
+                    {/* ITEMS — the main focus, big and bold */}
                     <div className="space-y-1 mb-2">
                       {order.items.map((item, i) => (
-                        <p key={i} className="text-white font-black text-base leading-tight">
+                        <p key={i} className="text-white font-black text-lg leading-tight">
                           {item.quantity}× {item.name}
                         </p>
                       ))}
                     </div>
 
                     {/* Total */}
-                    <div className="border-t border-white/10 pt-2 mb-3">
-                      <p className="text-[#D4AF37] font-black text-lg">
+                    <div className="border-t border-white/10 pt-1.5 mb-2">
+                      <p className="text-[#D4AF37] font-black text-base">
                         ${(order.amount_total / 100).toFixed(2)}
                       </p>
                     </div>
+
+                    {/* Order # + Customer — tiny metadata line */}
+                    <p className="text-gray-600 text-[9px] font-mono truncate mb-3">
+                      #{order.id.slice(0, 6).toUpperCase()}
+                      {order.customer_name ? ` · ${order.customer_name}` : ''}
+                    </p>
                   </div>
 
-                  {/* Bottom: Actions */}
+                  {/* Bottom: Actions — big tap targets */}
                   <div className="flex flex-col gap-1.5">
-                    <button
-                      onClick={() => printOrderReceipt(order)}
-                      className="w-full text-[10px] font-bold uppercase px-2 py-1.5 rounded-lg bg-green-900/50 text-green-300 hover:bg-green-800/60 transition-colors"
-                    >
-                      🖨️ Print
-                    </button>
-
-                    {nextStatuses.map((s) => (
+                    {/* Primary action — big solid button */}
+                    {nextStatuses.filter((s) => s !== 'cancelled').map((s) => (
                       <button
                         key={s}
                         onClick={() => updateStatus(order.id, s)}
-                        className={`w-full text-[10px] font-bold uppercase px-2 py-1.5 rounded-lg transition-colors ${
-                          s === 'cancelled'
-                            ? 'bg-red-900/50 text-red-300 hover:bg-red-800/60'
-                            : 'bg-[#D4AF37]/20 text-[#D4AF37] hover:bg-[#D4AF37]/30'
-                        }`}
+                        className="w-full text-xs font-black uppercase px-2 py-2.5 rounded-lg bg-[#D4AF37] text-black hover:bg-yellow-400 active:scale-95 transition-all"
                       >
-                        → {STATUS_CONFIG[s].label}
+                        {NEXT_STATUS_LABELS[s]}
                       </button>
                     ))}
+
+                    {/* Print + Cancel row */}
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => printOrderReceipt(order)}
+                        className="flex-1 text-[10px] font-bold uppercase px-2 py-2 rounded-lg bg-green-900/50 text-green-300 hover:bg-green-800/60 active:scale-95 transition-all"
+                      >
+                        🖨️ Print
+                      </button>
+                      {nextStatuses.includes('cancelled') && (
+                        <button
+                          onClick={() => updateStatus(order.id, 'cancelled')}
+                          className="text-[10px] font-bold uppercase px-3 py-2 rounded-lg bg-red-900/30 text-red-400/60 hover:bg-red-900/50 hover:text-red-300 active:scale-95 transition-all"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )
