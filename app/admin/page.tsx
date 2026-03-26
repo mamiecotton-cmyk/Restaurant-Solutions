@@ -313,22 +313,22 @@ export default function AdminPage() {
                       </span>
                     </div>
 
-                    {/* Order number */}
-                    <p className="text-[#D4AF37] font-black text-sm mb-1">
+                    {/* Order number - small muted */}
+                    <p className="text-gray-500 font-mono text-[10px] mb-0.5">
                       #{order.id.slice(0, 6).toUpperCase()}
                     </p>
 
-                    {/* Customer - small */}
+                    {/* Customer - small muted */}
                     {order.customer_name && (
                       <p className="text-gray-500 text-[10px] truncate mb-2">
                         {order.customer_name}
                       </p>
                     )}
 
-                    {/* Items - big and bold */}
+                    {/* Items - BIG and bold, the main focus */}
                     <div className="space-y-1 mb-2">
                       {order.items.map((item, i) => (
-                        <p key={i} className="text-white font-bold text-sm leading-tight">
+                        <p key={i} className="text-white font-black text-base leading-tight">
                           {item.quantity}× {item.name}
                         </p>
                       ))}
