@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import ViewSwitcher from '@/components/ViewSwitcher'
+import Link from 'next/link'
 
 interface Order {
   id: string
@@ -197,7 +197,7 @@ export default function KitchenPage() {
 
   return (
     <main className="bg-[#0a0a0a] min-h-screen px-3 py-4">
-      <style jsx global>{`
+      <style>{`
         @keyframes urgentFlash {
           0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
           50% { box-shadow: 0 0 16px 4px rgba(239, 68, 68, 0.5); }
@@ -206,6 +206,13 @@ export default function KitchenPage() {
       `}</style>
 
       <div className="max-w-[1600px] mx-auto">
+        {/* View Switcher */}
+        <div className="flex items-center gap-1 mb-3">
+          <Link href="/kitchen" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-white/10 text-white">🔥 Kitchen</Link>
+          <Link href="/admin" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full text-gray-600 hover:text-gray-400">📋 Front Counter</Link>
+          <Link href="/owner" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full text-gray-600 hover:text-gray-400">📊 Owner</Link>
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <div className="flex items-center gap-3">
@@ -327,7 +334,7 @@ export default function KitchenPage() {
                     <select
                       value={order.status}
                       onChange={(e) => updateStatus(order.id, e.target.value)}
-                      className="w-full text-[10px] font-bold uppercase bg-[#111] text-gray-500 border border-white/5 rounded-lg px-2 py-1.5 hover:border-orange-500/30 transition-colors cursor-pointer appearance-none text-center"
+                      className="w-full text-[10px] font-bold uppercase bg-[#111] text-gray-500 border border-white/5 rounded-lg px-2 py-1.5 hover:border-orange-500/30 transition-colors cursor-pointer text-center"
                     >
                       {ALL_STATUSES.map((s) => (
                         <option key={s} value={s}>{s === order.status ? `● ${s.toUpperCase()}` : s.toUpperCase()}</option>

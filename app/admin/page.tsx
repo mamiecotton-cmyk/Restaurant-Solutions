@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import ViewSwitcher from '@/components/ViewSwitcher'
+import Link from 'next/link'
 
 interface Order {
   id: string
@@ -213,7 +213,7 @@ export default function AdminPage() {
 
   return (
     <main className="bg-[#0a0a0a] min-h-screen px-3 py-4">
-      <style jsx global>{`
+      <style>{`
         @keyframes readyFlash {
           0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
           50% { box-shadow: 0 0 16px 4px rgba(34, 197, 94, 0.5); }
@@ -222,6 +222,13 @@ export default function AdminPage() {
       `}</style>
 
       <div className="max-w-[1600px] mx-auto">
+        {/* View Switcher */}
+        <div className="flex items-center gap-1 mb-3">
+          <Link href="/kitchen" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full text-gray-600 hover:text-gray-400">🔥 Kitchen</Link>
+          <Link href="/admin" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-white/10 text-white">📋 Front Counter</Link>
+          <Link href="/owner" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full text-gray-600 hover:text-gray-400">📊 Owner</Link>
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <div className="flex items-center gap-3">
@@ -239,7 +246,6 @@ export default function AdminPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <ViewSwitcher />
             <button
               onClick={() => { setLoading(true); fetchOrders() }}
               className="text-xs bg-[#1a1a1a] border border-white/10 text-gray-300 px-3 py-1.5 rounded-lg hover:border-[#D4AF37]/50 transition-colors"
@@ -337,7 +343,7 @@ export default function AdminPage() {
                       <select
                         value={order.status}
                         onChange={(e) => updateStatus(order.id, e.target.value)}
-                        className="text-[10px] font-bold uppercase bg-[#1a1a1a] text-gray-400 border border-white/10 rounded-lg px-2 py-2 hover:border-[#D4AF37]/40 transition-colors cursor-pointer appearance-none"
+                        className="text-[10px] font-bold uppercase bg-[#1a1a1a] text-gray-400 border border-white/10 rounded-lg px-2 py-2 hover:border-[#D4AF37]/40 transition-colors cursor-pointer"
                       >
                         {ALL_STATUSES.map((s) => (
                           <option key={s} value={s}>{s.toUpperCase()}</option>

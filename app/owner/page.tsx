@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import ViewSwitcher from '@/components/ViewSwitcher'
+import Link from 'next/link'
 
 interface Order {
   id: string
@@ -134,33 +134,37 @@ export default function OwnerPage() {
   const todayOrders = nonCancelled.filter((o) => isToday(o.created_at)).length
   const avgTime = calcAvgOrderTime(orders)
 
-  const filteredOrders = orders
-    .filter((o) => {
-      if (statusFilter !== 'all' && o.status !== statusFilter) return false
-      if (search) {
-        const q = search.toLowerCase()
-        const nameMatch = o.customer_name?.toLowerCase().includes(q)
-        const idMatch = o.id.toLowerCase().includes(q)
-        const emailMatch = o.customer_email?.toLowerCase().includes(q)
-        const itemMatch = o.items.some((i) => i.name.toLowerCase().includes(q))
-        return nameMatch || idMatch || emailMatch || itemMatch
-      }
-      return true
-    })
+  const filteredOrders = orders.filter((o) => {
+    if (statusFilter !== 'all' && o.status !== statusFilter) return false
+    if (search) {
+      const q = search.toLowerCase()
+      const nameMatch = o.customer_name?.toLowerCase().includes(q)
+      const idMatch = o.id.toLowerCase().includes(q)
+      const emailMatch = o.customer_email?.toLowerCase().includes(q)
+      const itemMatch = o.items.some((i) => i.name.toLowerCase().includes(q))
+      return nameMatch || idMatch || emailMatch || itemMatch
+    }
+    return true
+  })
 
   return (
     <main className="bg-[#0a0a0a] min-h-screen px-4 py-4">
       <div className="max-w-[1400px] mx-auto">
+        {/* View Switcher */}
+        <div className="flex items-center gap-1 mb-3">
+          <Link href="/kitchen" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full text-gray-600 hover:text-gray-400">🔥 Kitchen</Link>
+          <Link href="/admin" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full text-gray-600 hover:text-gray-400">📋 Front Counter</Link>
+          <Link href="/owner" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-white/10 text-white">📊 Owner</Link>
+        </div>
+
+        {/* Header */}
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-black text-purple-400 uppercase tracking-wide">📊 Owner Dashboard</h1>
-          </div>
+          <h1 className="text-xl font-black text-purple-400 uppercase tracking-wide">📊 Owner Dashboard</h1>
           <div className="flex items-center gap-3">
             <div className="text-right">
               <p className="text-[10px] text-gray-500 uppercase tracking-wider">Avg Order Time</p>
               <p className="text-lg font-black text-purple-400">{avgTime}</p>
             </div>
-            <ViewSwitcher />
             <button
               onClick={() => { setLoading(true); fetchOrders() }}
               className="text-xs bg-[#1a1a1a] border border-white/10 text-gray-300 px-3 py-1.5 rounded-lg hover:border-purple-500/50 transition-colors"
@@ -170,6 +174,7 @@ export default function OwnerPage() {
           </div>
         </div>
 
+        {/* Revenue Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <div className="bg-[#1a1a1a] border border-white/5 rounded-xl p-4">
             <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Today</p>
@@ -191,6 +196,7 @@ export default function OwnerPage() {
           </div>
         </div>
 
+        {/* Search + Filters + Export */}
         <div className="flex items-center gap-3 mb-4 flex-wrap">
           <input
             type="text"
@@ -217,6 +223,7 @@ export default function OwnerPage() {
           </button>
         </div>
 
+        {/* Orders Table */}
         {loading ? (
           <div className="text-center py-20 text-gray-500">Loading orders...</div>
         ) : filteredOrders.length === 0 ? (
@@ -255,7 +262,7 @@ export default function OwnerPage() {
                     </td>
                     <td className="py-3 px-2">
                       <span className="text-white text-xs font-semibold">
-                        {formatName(order.customer_name) || '-'}
+                        {formatName(order.customer_name) || '—'}
                       </span>
                       {order.customer_email && (
                         <>
