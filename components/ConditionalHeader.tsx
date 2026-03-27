@@ -5,8 +5,8 @@ import Header from '@/components/Header'
 
 export default function ConditionalHeader() {
   const pathname = usePathname()
-  const isAdmin = pathname.startsWith('/admin')
+  const hideHeader = pathname.startsWith('/admin') || pathname.startsWith('/kitchen')
 
-  if (isAdmin) return null
+  if (hideHeader) return null
   return <Header />
 }

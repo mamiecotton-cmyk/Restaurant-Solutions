@@ -5,7 +5,6 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = getSupabase()
   const { id } = await params
   const body = await req.json()
   const { status } = body
@@ -15,6 +14,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
   }
 
+  const supabase = getSupabase()
   const { data, error } = await supabase
     .from('orders')
     .update({ status })
