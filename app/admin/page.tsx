@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import ViewSwitcher from '@/components/ViewSwitcher'
 
 interface Order {
   id: string
@@ -38,10 +39,9 @@ function formatName(fullName: string | null): string {
   return `${parts[0]} ${parts[parts.length - 1][0]}.`
 }
 
-function playNotificationSound() {
+function playChimeSound() {
   try {
     const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
-    // Pleasant chime for ready orders
     const freqs = [523, 659, 784]
     freqs.forEach((freq, i) => {
       const osc = audioCtx.createOscillator()
@@ -55,7 +55,7 @@ function playNotificationSound() {
       osc.stop(audioCtx.currentTime + i * 0.15 + 0.2)
     })
   } catch (e) {
-    console.warn('Could not play notification sound:', e)
+    console.warn('Could not play chime:', e)
   }
 }
 
@@ -146,7 +146,6 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('active')
   const [now, setNow] = useState(Date.now())
-  const [autoPrint, setAutoPrint] = useState(true)
   const knownReadyIds = useRef<Set<string>>(new Set())
   const isFirstLoad = useRef(true)
 
@@ -165,10 +164,9 @@ export default function AdminPage() {
             (o: Order) => o.status === 'ready' && !knownReadyIds.current.has(o.id)
           )
           if (newReady.length > 0) {
-            playNotificationSound()
+            playChimeSound()
           }
         }
-        // Track all ready orders
         data.filter((o: Order) => o.status === 'ready').forEach((o: Order) => knownReadyIds.current.add(o.id))
         isFirstLoad.current = false
         setOrders(data)
@@ -216,20 +214,18 @@ export default function AdminPage() {
   return (
     <main className="bg-[#0a0a0a] min-h-screen px-3 py-4">
       <style jsx global>{`
-        @keyframes urgentFlash {
+        @keyframes readyFlash {
           0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
           50% { box-shadow: 0 0 16px 4px rgba(34, 197, 94, 0.5); }
         }
-        .flash-ready { animation: urgentFlash 1s ease-in-out infinite; }
+        .flash-ready { animation: readyFlash 1s ease-in-out infinite; }
       `}</style>
 
       <div className="max-w-[1600px] mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-black text-[#D4AF37] uppercase tracking-wide">
-              Front Counter
-            </h1>
+            <h1 className="text-xl font-black text-[#D4AF37] uppercase tracking-wide">📋 Front Counter</h1>
             <div className="flex gap-2">
               {newCount > 0 && (
                 <span className="bg-yellow-600 text-black text-xs font-black px-2 py-1 rounded-full">{newCount} NEW</span>
@@ -243,14 +239,7 @@ export default function AdminPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setAutoPrint(!autoPrint)}
-              className={`text-xs font-bold uppercase px-3 py-1.5 rounded-lg border transition-colors ${
-                autoPrint ? 'bg-green-900/40 border-green-500/50 text-green-300' : 'bg-[#1a1a1a] border-white/10 text-gray-500'
-              }`}
-            >
-              🖨️ {autoPrint ? 'ON' : 'OFF'}
-            </button>
+            <ViewSwitcher />
             <button
               onClick={() => { setLoading(true); fetchOrders() }}
               className="text-xs bg-[#1a1a1a] border border-white/10 text-gray-300 px-3 py-1.5 rounded-lg hover:border-[#D4AF37]/50 transition-colors"
@@ -299,7 +288,6 @@ export default function AdminPage() {
                   }`}
                 >
                   <div>
-                    {/* Status + Time */}
                     <div className="flex items-center justify-between mb-2">
                       <span className={`font-black text-[11px] uppercase ${isUrgent ? 'text-green-300' : config.color}`}>
                         {isUrgent ? '⚡ PICKUP' : config.label}
@@ -309,7 +297,6 @@ export default function AdminPage() {
                       </span>
                     </div>
 
-                    {/* Items - BIG */}
                     <div className="space-y-1 mb-2">
                       {order.items.map((item, i) => (
                         <p key={i} className="text-white font-black text-base leading-tight">
@@ -318,23 +305,19 @@ export default function AdminPage() {
                       ))}
                     </div>
 
-                    {/* Total */}
                     <div className="border-t border-white/10 pt-1.5 mb-2">
                       <p className="text-[#D4AF37] font-black text-lg">
                         ${(order.amount_total / 100).toFixed(2)}
                       </p>
                     </div>
 
-                    {/* Order # + Customer - tiny */}
                     <p className="text-gray-600 text-[9px] font-mono truncate mb-3">
                       #{order.id.slice(0, 6).toUpperCase()}
                       {order.customer_name ? ` · ${formatName(order.customer_name)}` : ''}
                     </p>
                   </div>
 
-                  {/* Actions */}
                   <div className="flex flex-col gap-1.5">
-                    {/* Big forward button */}
                     {forward && (
                       <button
                         onClick={() => updateStatus(order.id, forward.next)}
@@ -344,7 +327,6 @@ export default function AdminPage() {
                       </button>
                     )}
 
-                    {/* Print + Status dropdown row */}
                     <div className="flex gap-1.5">
                       <button
                         onClick={() => printOrderReceipt(order)}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import ViewSwitcher from '@/components/ViewSwitcher'
 
 interface Order {
   id: string
@@ -91,15 +92,11 @@ function printOrderTicket(order: Order) {
       </style>
     </head>
     <body>
-      <div class="header">
-        <h1>KITCHEN TICKET</h1>
-      </div>
+      <div class="header"><h1>KITCHEN TICKET</h1></div>
       <div class="order-number">ORDER #${order.id.slice(0, 8).toUpperCase()}</div>
       ${order.customer_name ? `<div class="customer">${formatName(order.customer_name)}</div>` : ''}
       <table><tbody>${itemsHtml}</tbody></table>
-      <div class="footer">
-        <p>${new Date(order.created_at).toLocaleString()}</p>
-      </div>
+      <div class="footer"><p>${new Date(order.created_at).toLocaleString()}</p></div>
     </body>
     </html>
   `
@@ -212,9 +209,7 @@ export default function KitchenPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-black text-orange-400 uppercase tracking-wide">
-              🔥 Kitchen
-            </h1>
+            <h1 className="text-xl font-black text-orange-400 uppercase tracking-wide">🔥 Kitchen</h1>
             <div className="flex gap-2">
               {newCount > 0 && (
                 <span className="bg-yellow-600 text-black text-xs font-black px-2 py-1 rounded-full">{newCount} NEW</span>
@@ -224,9 +219,8 @@ export default function KitchenPage() {
               )}
             </div>
           </div>
-
           <div className="flex items-center gap-2">
-            {/* View dropdown */}
+            <ViewSwitcher />
             <select
               value={view}
               onChange={(e) => setView(e.target.value)}
@@ -276,7 +270,6 @@ export default function KitchenPage() {
                   }`}
                 >
                   <div>
-                    {/* Status + Time */}
                     <div className="flex items-center justify-between mb-1">
                       <span className={`font-black text-[11px] uppercase ${isUrgent ? 'text-red-400' : config.color}`}>
                         {isUrgent ? '🚨 URGENT' : config.label}
@@ -286,14 +279,12 @@ export default function KitchenPage() {
                       </span>
                     </div>
 
-                    {/* Customer name for callouts */}
                     {order.customer_name && (
                       <p className="text-gray-400 text-xs font-semibold mb-2 truncate">
                         {formatName(order.customer_name)}
                       </p>
                     )}
 
-                    {/* ITEMS - HUGE, the only thing that matters */}
                     <div className="space-y-1.5 mb-2">
                       {order.items.map((item, i) => (
                         <p key={i} className="text-white font-black text-xl leading-tight">
@@ -302,15 +293,12 @@ export default function KitchenPage() {
                       ))}
                     </div>
 
-                    {/* Order # - tiny */}
                     <p className="text-gray-600 text-[9px] font-mono mb-3">
                       #{order.id.slice(0, 6).toUpperCase()}
                     </p>
                   </div>
 
-                  {/* Actions */}
                   <div className="flex flex-col gap-1.5">
-                    {/* Big forward button */}
                     {forward && (
                       <button
                         onClick={() => updateStatus(order.id, forward.next)}
@@ -320,7 +308,6 @@ export default function KitchenPage() {
                       </button>
                     )}
 
-                    {/* Print + Cancel row */}
                     <div className="flex gap-1.5">
                       <button
                         onClick={() => printOrderTicket(order)}
@@ -338,7 +325,6 @@ export default function KitchenPage() {
                       )}
                     </div>
 
-                    {/* Small status dropdown for corrections */}
                     <select
                       value={order.status}
                       onChange={(e) => updateStatus(order.id, e.target.value)}
