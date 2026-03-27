@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import ViewSwitcher from '@/components/ViewSwitcher'
 
 interface Order {
   id: string
