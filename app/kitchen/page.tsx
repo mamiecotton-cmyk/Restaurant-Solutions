@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import ViewSwitcher from '@/components/ViewSwitcher'
 
 interface Order {
   id: string
@@ -220,7 +219,6 @@ export default function KitchenPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <ViewSwitcher />
             <select
               value={view}
               onChange={(e) => setView(e.target.value)}

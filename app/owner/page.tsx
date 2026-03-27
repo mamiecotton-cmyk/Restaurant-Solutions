@@ -151,13 +151,11 @@ export default function OwnerPage() {
   return (
     <main className="bg-[#0a0a0a] min-h-screen px-4 py-4">
       <div className="max-w-[1400px] mx-auto">
-        {/* Header */}
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-black text-purple-400 uppercase tracking-wide">📊 Owner Dashboard</h1>
           </div>
           <div className="flex items-center gap-3">
-            {/* Avg order time */}
             <div className="text-right">
               <p className="text-[10px] text-gray-500 uppercase tracking-wider">Avg Order Time</p>
               <p className="text-lg font-black text-purple-400">{avgTime}</p>
@@ -172,7 +170,6 @@ export default function OwnerPage() {
           </div>
         </div>
 
-        {/* Revenue Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <div className="bg-[#1a1a1a] border border-white/5 rounded-xl p-4">
             <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Today</p>
@@ -194,7 +191,6 @@ export default function OwnerPage() {
           </div>
         </div>
 
-        {/* Search + Filters + Export */}
         <div className="flex items-center gap-3 mb-4 flex-wrap">
           <input
             type="text"
@@ -221,7 +217,6 @@ export default function OwnerPage() {
           </button>
         </div>
 
-        {/* Orders Table */}
         {loading ? (
           <div className="text-center py-20 text-gray-500">Loading orders...</div>
         ) : filteredOrders.length === 0 ? (
@@ -260,7 +255,7 @@ export default function OwnerPage() {
                     </td>
                     <td className="py-3 px-2">
                       <span className="text-white text-xs font-semibold">
-                        {formatName(order.customer_name) || '—'}
+                        {formatName(order.customer_name) || '-'}
                       </span>
                       {order.customer_email && (
                         <>
