@@ -39,6 +39,21 @@ function formatName(fullName: string | null): string {
   return `${parts[0]} ${parts[parts.length - 1][0]}.`
 }
 
+function calcAvgOrderTime(orders: Order[]): string {
+  const eligible = orders.filter(
+    (o) => (o.status === 'ready' || o.status === 'completed') && o.created_at && o.updated_at
+  )
+  if (eligible.length === 0) return '--'
+  const totalMs = eligible.reduce((sum, o) => {
+    return sum + (new Date(o.updated_at).getTime() - new Date(o.created_at).getTime())
+  }, 0)
+  const avgMs = totalMs / eligible.length
+  const avgMin = Math.floor(avgMs / 60000)
+  const avgSec = Math.floor((avgMs % 60000) / 1000)
+  if (avgMin === 0) return `${avgSec}s`
+  return `${avgMin}m ${avgSec}s`
+}
+
 function playChimeSound() {
   try {
     const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
@@ -61,73 +76,14 @@ function playChimeSound() {
 
 function printOrderReceipt(order: Order) {
   const itemsHtml = order.items
-    .map(
-      (item) =>
-        `<tr>
-          <td style="text-align:left;padding:4px 0;">${item.quantity}x ${item.name}</td>
-          <td style="text-align:right;padding:4px 0;">$${(item.amount / 100).toFixed(2)}</td>
-        </tr>`
-    )
+    .map((item) => `<tr><td style="text-align:left;padding:4px 0;">${item.quantity}x ${item.name}</td><td style="text-align:right;padding:4px 0;">$${(item.amount / 100).toFixed(2)}</td></tr>`)
     .join('')
-
-  const receiptHtml = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Order Receipt</title>
-      <style>
-        @page { margin: 0; size: 80mm auto; }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Courier New', monospace; width: 80mm; padding: 8mm 4mm; font-size: 12px; color: #000; }
-        .header { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 8px; margin-bottom: 8px; }
-        .header h1 { font-size: 18px; font-weight: bold; margin-bottom: 2px; }
-        .header p { font-size: 10px; }
-        .order-info { border-bottom: 1px dashed #000; padding-bottom: 8px; margin-bottom: 8px; }
-        .order-info p { margin-bottom: 2px; }
-        .label { font-weight: bold; font-size: 11px; }
-        table { width: 100%; border-collapse: collapse; }
-        .items-table { border-bottom: 1px dashed #000; padding-bottom: 8px; margin-bottom: 8px; }
-        .total-row td { font-weight: bold; font-size: 16px; padding-top: 8px; border-top: 2px dashed #000; }
-        .footer { text-align: center; margin-top: 12px; font-size: 10px; }
-        .order-number { font-size: 14px; font-weight: bold; text-align: center; padding: 6px 0; border: 2px solid #000; margin-bottom: 8px; }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>WALLY'S NW SOUL</h1>
-        <p>Northwest Soul. Real Flavor.</p>
-      </div>
-      <div class="order-number">ORDER #${order.id.slice(0, 8).toUpperCase()}</div>
-      <div class="order-info">
-        <p><span class="label">Date:</span> ${new Date(order.created_at).toLocaleString()}</p>
-        ${order.customer_name ? `<p><span class="label">Customer:</span> ${formatName(order.customer_name)}</p>` : ''}
-        ${order.customer_email ? `<p><span class="label">Email:</span> ${order.customer_email}</p>` : ''}
-      </div>
-      <div class="items-table">
-        <table><tbody>${itemsHtml}</tbody></table>
-      </div>
-      <table><tbody>
-        <tr class="total-row">
-          <td style="text-align:left;">TOTAL</td>
-          <td style="text-align:right;">$${(order.amount_total / 100).toFixed(2)}</td>
-        </tr>
-      </tbody></table>
-      <div class="footer">
-        <p>Thank you for your order!</p>
-        <p>Follow us @wallys_nw_soul</p>
-      </div>
-    </body>
-    </html>
-  `
-
+  const receiptHtml = `<!DOCTYPE html><html><head><title>Receipt</title><style>@page{margin:0;size:80mm auto}*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Courier New',monospace;width:80mm;padding:8mm 4mm;font-size:12px;color:#000}.header{text-align:center;border-bottom:2px dashed #000;padding-bottom:8px;margin-bottom:8px}.header h1{font-size:18px;font-weight:bold;margin-bottom:2px}.header p{font-size:10px}.order-info{border-bottom:1px dashed #000;padding-bottom:8px;margin-bottom:8px}.order-info p{margin-bottom:2px}.label{font-weight:bold;font-size:11px}table{width:100%;border-collapse:collapse}.items-table{border-bottom:1px dashed #000;padding-bottom:8px;margin-bottom:8px}.total-row td{font-weight:bold;font-size:16px;padding-top:8px;border-top:2px dashed #000}.footer{text-align:center;margin-top:12px;font-size:10px}.order-number{font-size:14px;font-weight:bold;text-align:center;padding:6px 0;border:2px solid #000;margin-bottom:8px}</style></head><body><div class="header"><h1>WALLY'S NW SOUL</h1><p>Northwest Soul. Real Flavor.</p></div><div class="order-number">ORDER #${order.id.slice(0, 8).toUpperCase()}</div><div class="order-info"><p><span class="label">Date:</span> ${new Date(order.created_at).toLocaleString()}</p>${order.customer_name ? `<p><span class="label">Customer:</span> ${formatName(order.customer_name)}</p>` : ''}${order.customer_email ? `<p><span class="label">Email:</span> ${order.customer_email}</p>` : ''}</div><div class="items-table"><table><tbody>${itemsHtml}</tbody></table></div><table><tbody><tr class="total-row"><td style="text-align:left;">TOTAL</td><td style="text-align:right;">$${(order.amount_total / 100).toFixed(2)}</td></tr></tbody></table><div class="footer"><p>Thank you for your order!</p><p>Follow us @wallys_nw_soul</p></div></body></html>`
   const printWindow = window.open('', '_blank', 'width=320,height=600')
   if (printWindow) {
     printWindow.document.write(receiptHtml)
     printWindow.document.close()
-    setTimeout(() => {
-      printWindow.print()
-      setTimeout(() => printWindow.close(), 2000)
-    }, 500)
+    setTimeout(() => { printWindow.print(); setTimeout(() => printWindow.close(), 2000) }, 500)
   }
 }
 
@@ -160,12 +116,8 @@ export default function AdminPage() {
       const data = await res.json()
       if (Array.isArray(data)) {
         if (!isFirstLoad.current) {
-          const newReady = data.filter(
-            (o: Order) => o.status === 'ready' && !knownReadyIds.current.has(o.id)
-          )
-          if (newReady.length > 0) {
-            playChimeSound()
-          }
+          const newReady = data.filter((o: Order) => o.status === 'ready' && !knownReadyIds.current.has(o.id))
+          if (newReady.length > 0) playChimeSound()
         }
         data.filter((o: Order) => o.status === 'ready').forEach((o: Order) => knownReadyIds.current.add(o.id))
         isFirstLoad.current = false
@@ -192,9 +144,7 @@ export default function AdminPage() {
         body: JSON.stringify({ status: newStatus }),
       })
       if (res.ok) {
-        setOrders((prev) =>
-          prev.map((o) => (o.id === id ? { ...o, status: newStatus as Order['status'] } : o))
-        )
+        setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status: newStatus as Order['status'] } : o)))
       }
     } catch (err) {
       console.error('Failed to update order:', err)
@@ -210,9 +160,10 @@ export default function AdminPage() {
   const newCount = orders.filter((o) => o.status === 'new').length
   const prepCount = orders.filter((o) => o.status === 'preparing').length
   const readyCount = orders.filter((o) => o.status === 'ready').length
+  const avgTime = calcAvgOrderTime(orders)
 
   return (
-    <main className="bg-[#0a0a0a] min-h-screen px-3 py-4">
+    <main className="bg-[#0a0a0a] min-h-screen px-3 pt-2 pb-4">
       <style>{`
         @keyframes readyFlash {
           0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
@@ -222,132 +173,86 @@ export default function AdminPage() {
       `}</style>
 
       <div className="max-w-[1600px] mx-auto">
-        {/* View Switcher */}
-        <div className="flex items-center gap-1 mb-3">
-          <Link href="/kitchen" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full text-gray-600 hover:text-gray-400">🔥 Kitchen</Link>
-          <Link href="/admin" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-white/10 text-white">📋 Front Counter</Link>
-          <Link href="/owner" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full text-gray-600 hover:text-gray-400">📊 Owner</Link>
-        </div>
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-black text-[#D4AF37] uppercase tracking-wide">📋 Front Counter</h1>
-            <div className="flex gap-2">
-              {newCount > 0 && (
-                <span className="bg-yellow-600 text-black text-xs font-black px-2 py-1 rounded-full">{newCount} NEW</span>
-              )}
-              {prepCount > 0 && (
-                <span className="bg-orange-600 text-white text-xs font-black px-2 py-1 rounded-full">{prepCount} PREP</span>
-              )}
-              {readyCount > 0 && (
-                <span className="bg-green-600 text-white text-xs font-black px-2 py-1 rounded-full">{readyCount} READY</span>
-              )}
+        {/* Top bar */}
+        <div className="flex items-start justify-between mb-4">
+          {/* Left */}
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-xl font-black text-[#D4AF37] uppercase tracking-wide">📋 Front Counter</h1>
+              <div className="flex gap-2">
+                {newCount > 0 && <span className="bg-yellow-600 text-black text-xs font-black px-2 py-1 rounded-full">{newCount} NEW</span>}
+                {prepCount > 0 && <span className="bg-orange-600 text-white text-xs font-black px-2 py-1 rounded-full">{prepCount} PREP</span>}
+                {readyCount > 0 && <span className="bg-green-600 text-white text-xs font-black px-2 py-1 rounded-full">{readyCount} READY</span>}
+              </div>
+            </div>
+            {/* Filters */}
+            <div className="flex gap-1.5 flex-wrap">
+              {['active', 'new', 'preparing', 'ready', 'completed', 'cancelled', 'all'].map((f) => (
+                <button key={f} onClick={() => setFilter(f)}
+                  className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full border transition-colors ${
+                    filter === f ? 'bg-[#D4AF37] text-black border-[#D4AF37]' : 'bg-[#1a1a1a] text-gray-400 border-white/10 hover:border-[#D4AF37]/40'}`}>
+                  {f}
+                </button>
+              ))}
+              <button onClick={() => { setLoading(true); fetchOrders() }}
+                className="text-[10px] bg-[#1a1a1a] border border-white/10 text-gray-300 px-3 py-1.5 rounded-full">↻</button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => { setLoading(true); fetchOrders() }}
-              className="text-xs bg-[#1a1a1a] border border-white/10 text-gray-300 px-3 py-1.5 rounded-lg hover:border-[#D4AF37]/50 transition-colors"
-            >
-              ↻
-            </button>
-          </div>
-        </div>
 
-        {/* Filters */}
-        <div className="flex gap-1.5 mb-4 flex-wrap">
-          {['active', 'new', 'preparing', 'ready', 'completed', 'cancelled', 'all'].map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full border transition-colors ${
-                filter === f
-                  ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
-                  : 'bg-[#1a1a1a] text-gray-400 border-white/10 hover:border-[#D4AF37]/40'
-              }`}
-            >
-              {f}
-            </button>
-          ))}
+          {/* Right: View switcher + avg time box */}
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex gap-1">
+              <Link href="/kitchen" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full text-gray-600 hover:text-gray-400">🔥 Kitchen</Link>
+              <Link href="/admin" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-white/10 text-white">📋 Front</Link>
+              <Link href="/owner" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full text-gray-600 hover:text-gray-400">📊 Owner</Link>
+            </div>
+            <div className="bg-[#1a1a1a] border border-[#D4AF37]/30 rounded-xl px-5 py-3 text-center min-w-[140px]">
+              <p className="text-[9px] text-gray-500 uppercase tracking-widest mb-1">Avg Order Time</p>
+              <p className="text-3xl font-black text-[#D4AF37]">{avgTime}</p>
+            </div>
+          </div>
         </div>
 
         {/* Orders Grid */}
         {loading ? (
           <div className="text-center py-20 text-gray-500">Loading orders...</div>
         ) : filteredOrders.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-gray-500">No orders found</p>
-          </div>
+          <div className="text-center py-20"><p className="text-gray-500">No orders found</p></div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
             {filteredOrders.map((order) => {
               const config = STATUS_CONFIG[order.status]
               const forward = FORWARD_STATUS[order.status]
               const isUrgent = order.status === 'ready' && isOlderThanMinutes(order.updated_at, 2)
-
               return (
-                <div
-                  key={order.id}
-                  className={`border rounded-xl p-3 flex flex-col justify-between ${config.bg} ${config.border} ${
-                    isUrgent ? 'flash-ready border-green-500 border-2' : ''
-                  }`}
-                >
+                <div key={order.id}
+                  className={`border rounded-xl p-3 flex flex-col justify-between ${config.bg} ${config.border} ${isUrgent ? 'flash-ready border-green-500 border-2' : ''}`}>
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className={`font-black text-[11px] uppercase ${isUrgent ? 'text-green-300' : config.color}`}>
-                        {isUrgent ? '⚡ PICKUP' : config.label}
-                      </span>
-                      <span className={`text-[10px] font-mono ${isUrgent ? 'text-green-300 font-bold' : 'text-gray-500'}`}>
-                        {timeAgo(order.created_at, now)}
-                      </span>
+                      <span className={`font-black text-[11px] uppercase ${isUrgent ? 'text-green-300' : config.color}`}>{isUrgent ? '⚡ PICKUP' : config.label}</span>
+                      <span className={`text-[10px] font-mono ${isUrgent ? 'text-green-300 font-bold' : 'text-gray-500'}`}>{timeAgo(order.created_at, now)}</span>
                     </div>
-
                     <div className="space-y-1 mb-2">
-                      {order.items.map((item, i) => (
-                        <p key={i} className="text-white font-black text-base leading-tight">
-                          {item.quantity}× {item.name}
-                        </p>
-                      ))}
+                      {order.items.map((item, i) => <p key={i} className="text-white font-black text-base leading-tight">{item.quantity}× {item.name}</p>)}
                     </div>
-
                     <div className="border-t border-white/10 pt-1.5 mb-2">
-                      <p className="text-[#D4AF37] font-black text-lg">
-                        ${(order.amount_total / 100).toFixed(2)}
-                      </p>
+                      <p className="text-[#D4AF37] font-black text-lg">${(order.amount_total / 100).toFixed(2)}</p>
                     </div>
-
                     <p className="text-gray-600 text-[9px] font-mono truncate mb-3">
-                      #{order.id.slice(0, 6).toUpperCase()}
-                      {order.customer_name ? ` · ${formatName(order.customer_name)}` : ''}
+                      #{order.id.slice(0, 6).toUpperCase()}{order.customer_name ? ` · ${formatName(order.customer_name)}` : ''}
                     </p>
                   </div>
-
                   <div className="flex flex-col gap-1.5">
                     {forward && (
-                      <button
-                        onClick={() => updateStatus(order.id, forward.next)}
-                        className="w-full text-xs font-black uppercase px-2 py-2.5 rounded-lg bg-[#D4AF37] text-black hover:bg-yellow-400 active:scale-95 transition-all"
-                      >
-                        {forward.label}
-                      </button>
+                      <button onClick={() => updateStatus(order.id, forward.next)}
+                        className="w-full text-xs font-black uppercase px-2 py-2.5 rounded-lg bg-[#D4AF37] text-black hover:bg-yellow-400 active:scale-95 transition-all">{forward.label}</button>
                     )}
-
                     <div className="flex gap-1.5">
-                      <button
-                        onClick={() => printOrderReceipt(order)}
-                        className="flex-1 text-[10px] font-bold uppercase px-2 py-2 rounded-lg bg-green-900/50 text-green-300 hover:bg-green-800/60 active:scale-95 transition-all"
-                      >
-                        🖨️ Print
-                      </button>
-                      <select
-                        value={order.status}
-                        onChange={(e) => updateStatus(order.id, e.target.value)}
-                        className="text-[10px] font-bold uppercase bg-[#1a1a1a] text-gray-400 border border-white/10 rounded-lg px-2 py-2 hover:border-[#D4AF37]/40 transition-colors cursor-pointer"
-                      >
-                        {ALL_STATUSES.map((s) => (
-                          <option key={s} value={s}>{s.toUpperCase()}</option>
-                        ))}
+                      <button onClick={() => printOrderReceipt(order)}
+                        className="flex-1 text-[10px] font-bold uppercase px-2 py-2 rounded-lg bg-green-900/50 text-green-300 hover:bg-green-800/60 active:scale-95 transition-all">🖨️ Print</button>
+                      <select value={order.status} onChange={(e) => updateStatus(order.id, e.target.value)}
+                        className="text-[10px] font-bold uppercase bg-[#1a1a1a] text-gray-400 border border-white/10 rounded-lg px-2 py-2 cursor-pointer">
+                        {ALL_STATUSES.map((s) => <option key={s} value={s}>{s.toUpperCase()}</option>)}
                       </select>
                     </div>
                   </div>

@@ -46,6 +46,21 @@ function formatName(fullName: string | null): string {
   return `${parts[0]} ${parts[parts.length - 1][0]}.`
 }
 
+function calcAvgOrderTime(orders: Order[]): string {
+  const eligible = orders.filter(
+    (o) => (o.status === 'ready' || o.status === 'completed') && o.created_at && o.updated_at
+  )
+  if (eligible.length === 0) return '--'
+  const totalMs = eligible.reduce((sum, o) => {
+    return sum + (new Date(o.updated_at).getTime() - new Date(o.created_at).getTime())
+  }, 0)
+  const avgMs = totalMs / eligible.length
+  const avgMin = Math.floor(avgMs / 60000)
+  const avgSec = Math.floor((avgMs % 60000) / 1000)
+  if (avgMin === 0) return `${avgSec}s`
+  return `${avgMin}m ${avgSec}s`
+}
+
 function playNotificationSound() {
   try {
     const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
@@ -68,47 +83,14 @@ function playNotificationSound() {
 
 function printOrderTicket(order: Order) {
   const itemsHtml = order.items
-    .map(
-      (item) =>
-        `<tr><td style="text-align:left;padding:4px 0;font-size:16px;font-weight:bold;">${item.quantity}x ${item.name}</td></tr>`
-    )
+    .map((item) => `<tr><td style="text-align:left;padding:4px 0;font-size:16px;font-weight:bold;">${item.quantity}x ${item.name}</td></tr>`)
     .join('')
-
-  const ticketHtml = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Kitchen Ticket</title>
-      <style>
-        @page { margin: 0; size: 80mm auto; }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Courier New', monospace; width: 80mm; padding: 8mm 4mm; font-size: 12px; color: #000; }
-        .header { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 8px; margin-bottom: 8px; }
-        .header h1 { font-size: 16px; font-weight: bold; }
-        .order-number { font-size: 18px; font-weight: bold; text-align: center; padding: 6px 0; border: 3px solid #000; margin-bottom: 8px; }
-        .customer { text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px dashed #000; }
-        table { width: 100%; border-collapse: collapse; }
-        .footer { text-align: center; margin-top: 12px; font-size: 10px; border-top: 2px dashed #000; padding-top: 8px; }
-      </style>
-    </head>
-    <body>
-      <div class="header"><h1>KITCHEN TICKET</h1></div>
-      <div class="order-number">ORDER #${order.id.slice(0, 8).toUpperCase()}</div>
-      ${order.customer_name ? `<div class="customer">${formatName(order.customer_name)}</div>` : ''}
-      <table><tbody>${itemsHtml}</tbody></table>
-      <div class="footer"><p>${new Date(order.created_at).toLocaleString()}</p></div>
-    </body>
-    </html>
-  `
-
+  const ticketHtml = `<!DOCTYPE html><html><head><title>Kitchen Ticket</title><style>@page{margin:0;size:80mm auto}*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Courier New',monospace;width:80mm;padding:8mm 4mm;font-size:12px;color:#000}.header{text-align:center;border-bottom:2px dashed #000;padding-bottom:8px;margin-bottom:8px}.header h1{font-size:16px;font-weight:bold}.order-number{font-size:18px;font-weight:bold;text-align:center;padding:6px 0;border:3px solid #000;margin-bottom:8px}.customer{text-align:center;font-size:14px;font-weight:bold;margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed #000}table{width:100%;border-collapse:collapse}.footer{text-align:center;margin-top:12px;font-size:10px;border-top:2px dashed #000;padding-top:8px}</style></head><body><div class="header"><h1>KITCHEN TICKET</h1></div><div class="order-number">ORDER #${order.id.slice(0, 8).toUpperCase()}</div>${order.customer_name ? `<div class="customer">${formatName(order.customer_name)}</div>` : ''}<table><tbody>${itemsHtml}</tbody></table><div class="footer"><p>${new Date(order.created_at).toLocaleString()}</p></div></body></html>`
   const printWindow = window.open('', '_blank', 'width=320,height=600')
   if (printWindow) {
     printWindow.document.write(ticketHtml)
     printWindow.document.close()
-    setTimeout(() => {
-      printWindow.print()
-      setTimeout(() => printWindow.close(), 2000)
-    }, 500)
+    setTimeout(() => { printWindow.print(); setTimeout(() => printWindow.close(), 2000) }, 500)
   }
 }
 
@@ -142,14 +124,10 @@ export default function KitchenPage() {
       const data = await res.json()
       if (Array.isArray(data)) {
         if (!isFirstLoad.current) {
-          const newIncoming = data.filter(
-            (o: Order) => o.status === 'new' && !knownOrderIds.current.has(o.id)
-          )
+          const newIncoming = data.filter((o: Order) => o.status === 'new' && !knownOrderIds.current.has(o.id))
           if (newIncoming.length > 0) {
             playNotificationSound()
-            if (autoPrint) {
-              newIncoming.forEach((order: Order) => printOrderTicket(order))
-            }
+            if (autoPrint) newIncoming.forEach((order: Order) => printOrderTicket(order))
           }
         }
         data.forEach((o: Order) => knownOrderIds.current.add(o.id))
@@ -177,9 +155,7 @@ export default function KitchenPage() {
         body: JSON.stringify({ status: newStatus }),
       })
       if (res.ok) {
-        setOrders((prev) =>
-          prev.map((o) => (o.id === id ? { ...o, status: newStatus as Order['status'] } : o))
-        )
+        setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status: newStatus as Order['status'] } : o)))
       }
     } catch (err) {
       console.error('Failed to update order:', err)
@@ -194,9 +170,10 @@ export default function KitchenPage() {
 
   const newCount = orders.filter((o) => o.status === 'new').length
   const cookingCount = orders.filter((o) => o.status === 'preparing').length
+  const avgTime = calcAvgOrderTime(orders)
 
   return (
-    <main className="bg-[#0a0a0a] min-h-screen px-3 py-4">
+    <main className="bg-[#0a0a0a] min-h-screen px-3 pt-2 pb-4">
       <style>{`
         @keyframes urgentFlash {
           0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
@@ -206,50 +183,42 @@ export default function KitchenPage() {
       `}</style>
 
       <div className="max-w-[1600px] mx-auto">
-        {/* View Switcher */}
-        <div className="flex items-center gap-1 mb-3">
-          <Link href="/kitchen" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-white/10 text-white">🔥 Kitchen</Link>
-          <Link href="/admin" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full text-gray-600 hover:text-gray-400">📋 Front Counter</Link>
-          <Link href="/owner" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full text-gray-600 hover:text-gray-400">📊 Owner</Link>
-        </div>
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-black text-orange-400 uppercase tracking-wide">🔥 Kitchen</h1>
-            <div className="flex gap-2">
-              {newCount > 0 && (
-                <span className="bg-yellow-600 text-black text-xs font-black px-2 py-1 rounded-full">{newCount} NEW</span>
-              )}
-              {cookingCount > 0 && (
-                <span className="bg-orange-600 text-white text-xs font-black px-2 py-1 rounded-full">{cookingCount} COOKING</span>
-              )}
+        {/* Top bar: title left, switcher+timer right */}
+        <div className="flex items-start justify-between mb-4">
+          {/* Left: Title + pills + controls */}
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-xl font-black text-orange-400 uppercase tracking-wide">🔥 Kitchen</h1>
+              <div className="flex gap-2">
+                {newCount > 0 && <span className="bg-yellow-600 text-black text-xs font-black px-2 py-1 rounded-full">{newCount} NEW</span>}
+                {cookingCount > 0 && <span className="bg-orange-600 text-white text-xs font-black px-2 py-1 rounded-full">{cookingCount} COOKING</span>}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <select value={view} onChange={(e) => setView(e.target.value)}
+                className="text-xs font-bold uppercase bg-[#1a1a1a] text-gray-300 border border-white/10 rounded-lg px-3 py-1.5 cursor-pointer">
+                {VIEW_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+              </select>
+              <button onClick={() => setAutoPrint(!autoPrint)}
+                className={`text-xs font-bold uppercase px-3 py-1.5 rounded-lg border transition-colors ${autoPrint ? 'bg-green-900/40 border-green-500/50 text-green-300' : 'bg-[#1a1a1a] border-white/10 text-gray-500'}`}>
+                🖨️ {autoPrint ? 'ON' : 'OFF'}
+              </button>
+              <button onClick={() => { setLoading(true); fetchOrders() }}
+                className="text-xs bg-[#1a1a1a] border border-white/10 text-gray-300 px-3 py-1.5 rounded-lg">↻</button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <select
-              value={view}
-              onChange={(e) => setView(e.target.value)}
-              className="text-xs font-bold uppercase bg-[#1a1a1a] text-gray-300 border border-white/10 rounded-lg px-3 py-1.5 hover:border-orange-500/40 transition-colors cursor-pointer"
-            >
-              {VIEW_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-            <button
-              onClick={() => setAutoPrint(!autoPrint)}
-              className={`text-xs font-bold uppercase px-3 py-1.5 rounded-lg border transition-colors ${
-                autoPrint ? 'bg-green-900/40 border-green-500/50 text-green-300' : 'bg-[#1a1a1a] border-white/10 text-gray-500'
-              }`}
-            >
-              🖨️ {autoPrint ? 'ON' : 'OFF'}
-            </button>
-            <button
-              onClick={() => { setLoading(true); fetchOrders() }}
-              className="text-xs bg-[#1a1a1a] border border-white/10 text-gray-300 px-3 py-1.5 rounded-lg hover:border-orange-500/50 transition-colors"
-            >
-              ↻
-            </button>
+
+          {/* Right: View switcher + avg time box */}
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex gap-1">
+              <Link href="/kitchen" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-white/10 text-white">🔥 Kitchen</Link>
+              <Link href="/admin" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full text-gray-600 hover:text-gray-400">📋 Front</Link>
+              <Link href="/owner" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full text-gray-600 hover:text-gray-400">📊 Owner</Link>
+            </div>
+            <div className="bg-[#1a1a1a] border border-orange-500/30 rounded-xl px-5 py-3 text-center min-w-[140px]">
+              <p className="text-[9px] text-gray-500 uppercase tracking-widest mb-1">Avg Order Time</p>
+              <p className="text-3xl font-black text-orange-400">{avgTime}</p>
+            </div>
           </div>
         </div>
 
@@ -267,78 +236,36 @@ export default function KitchenPage() {
               const config = STATUS_CONFIG[order.status]
               const forward = FORWARD_STATUS[order.status]
               const isUrgent = order.status === 'new' && isOlderThanMinutes(order.created_at, 2)
-
               return (
-                <div
-                  key={order.id}
-                  className={`border rounded-xl p-3 flex flex-col justify-between ${config.bg} ${config.border} ${
-                    isUrgent ? 'flash-urgent border-red-500 border-2' : ''
-                  }`}
-                >
+                <div key={order.id}
+                  className={`border rounded-xl p-3 flex flex-col justify-between ${config.bg} ${config.border} ${isUrgent ? 'flash-urgent border-red-500 border-2' : ''}`}>
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <span className={`font-black text-[11px] uppercase ${isUrgent ? 'text-red-400' : config.color}`}>
-                        {isUrgent ? '🚨 URGENT' : config.label}
-                      </span>
-                      <span className={`text-[10px] font-mono ${isUrgent ? 'text-red-400 font-bold' : 'text-gray-500'}`}>
-                        {timeAgo(order.created_at, now)}
-                      </span>
+                      <span className={`font-black text-[11px] uppercase ${isUrgent ? 'text-red-400' : config.color}`}>{isUrgent ? '🚨 URGENT' : config.label}</span>
+                      <span className={`text-[10px] font-mono ${isUrgent ? 'text-red-400 font-bold' : 'text-gray-500'}`}>{timeAgo(order.created_at, now)}</span>
                     </div>
-
-                    {order.customer_name && (
-                      <p className="text-gray-400 text-xs font-semibold mb-2 truncate">
-                        {formatName(order.customer_name)}
-                      </p>
-                    )}
-
+                    {order.customer_name && <p className="text-gray-400 text-xs font-semibold mb-2 truncate">{formatName(order.customer_name)}</p>}
                     <div className="space-y-1.5 mb-2">
-                      {order.items.map((item, i) => (
-                        <p key={i} className="text-white font-black text-xl leading-tight">
-                          {item.quantity}× {item.name}
-                        </p>
-                      ))}
+                      {order.items.map((item, i) => <p key={i} className="text-white font-black text-xl leading-tight">{item.quantity}× {item.name}</p>)}
                     </div>
-
-                    <p className="text-gray-600 text-[9px] font-mono mb-3">
-                      #{order.id.slice(0, 6).toUpperCase()}
-                    </p>
+                    <p className="text-gray-600 text-[9px] font-mono mb-3">#{order.id.slice(0, 6).toUpperCase()}</p>
                   </div>
-
                   <div className="flex flex-col gap-1.5">
                     {forward && (
-                      <button
-                        onClick={() => updateStatus(order.id, forward.next)}
-                        className="w-full text-sm font-black uppercase px-2 py-3 rounded-lg bg-orange-500 text-black hover:bg-orange-400 active:scale-95 transition-all"
-                      >
-                        {forward.label}
-                      </button>
+                      <button onClick={() => updateStatus(order.id, forward.next)}
+                        className="w-full text-sm font-black uppercase px-2 py-3 rounded-lg bg-orange-500 text-black hover:bg-orange-400 active:scale-95 transition-all">{forward.label}</button>
                     )}
-
                     <div className="flex gap-1.5">
-                      <button
-                        onClick={() => printOrderTicket(order)}
-                        className="flex-1 text-[10px] font-bold uppercase px-2 py-2 rounded-lg bg-green-900/50 text-green-300 hover:bg-green-800/60 active:scale-95 transition-all"
-                      >
-                        🖨️ Print
-                      </button>
+                      <button onClick={() => printOrderTicket(order)}
+                        className="flex-1 text-[10px] font-bold uppercase px-2 py-2 rounded-lg bg-green-900/50 text-green-300 hover:bg-green-800/60 active:scale-95 transition-all">🖨️ Print</button>
                       {order.status !== 'cancelled' && order.status !== 'completed' && (
-                        <button
-                          onClick={() => updateStatus(order.id, 'cancelled')}
-                          className="text-[10px] font-bold uppercase px-3 py-2 rounded-lg bg-red-900/30 text-red-400/60 hover:bg-red-900/50 hover:text-red-300 active:scale-95 transition-all"
-                        >
-                          ✕
-                        </button>
+                        <button onClick={() => updateStatus(order.id, 'cancelled')}
+                          className="text-[10px] font-bold uppercase px-3 py-2 rounded-lg bg-red-900/30 text-red-400/60 hover:bg-red-900/50 hover:text-red-300 active:scale-95 transition-all">✕</button>
                       )}
                     </div>
-
-                    <select
-                      value={order.status}
-                      onChange={(e) => updateStatus(order.id, e.target.value)}
-                      className="w-full text-[10px] font-bold uppercase bg-[#111] text-gray-500 border border-white/5 rounded-lg px-2 py-1.5 hover:border-orange-500/30 transition-colors cursor-pointer text-center"
-                    >
-                      {ALL_STATUSES.map((s) => (
-                        <option key={s} value={s}>{s === order.status ? `● ${s.toUpperCase()}` : s.toUpperCase()}</option>
-                      ))}
+                    <select value={order.status} onChange={(e) => updateStatus(order.id, e.target.value)}
+                      className="w-full text-[10px] font-bold uppercase bg-[#111] text-gray-500 border border-white/5 rounded-lg px-2 py-1.5 cursor-pointer text-center">
+                      {ALL_STATUSES.map((s) => <option key={s} value={s}>{s === order.status ? `● ${s.toUpperCase()}` : s.toUpperCase()}</option>)}
                     </select>
                   </div>
                 </div>
