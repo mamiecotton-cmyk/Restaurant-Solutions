@@ -28,6 +28,17 @@ function calcAvgOrderTime(orders: Order[], resetAfter: string | null): string {
   return `${avgMin}m ${avgSec}s`
 }
 
+function calcCurrentWait(orders: Order[], now: number): string {
+  const activeOrders = orders.filter((o) => o.status === 'new' || o.status === 'preparing')
+  if (activeOrders.length === 0) return '--'
+  const oldest = activeOrders.reduce((a, b) => new Date(a.created_at).getTime() < new Date(b.created_at).getTime() ? a : b)
+  const waitMs = now - new Date(oldest.created_at).getTime()
+  const waitMin = Math.floor(waitMs / 60000)
+  const waitSec = Math.floor((waitMs % 60000) / 1000)
+  if (waitMin === 0) return `${waitSec}s`
+  return `${waitMin}m ${waitSec}s`
+}
+
 function isToday(dateStr: string): boolean {
   return new Date(dateStr).toDateString() === new Date().toDateString()
 }
@@ -46,6 +57,12 @@ export default function OwnerPage() {
   const [resetting, setResetting] = useState(false)
   const [menuCount, setMenuCount] = useState(0)
   const [unavailableCount, setUnavailableCount] = useState(0)
+  const [now, setNow] = useState(Date.now())
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 5000)
+    return () => clearInterval(timer)
+  }, [])
 
   const fetchAll = useCallback(async () => {
     try {
@@ -85,12 +102,12 @@ export default function OwnerPage() {
   const todayRevenue = nonCancelled.filter((o) => isToday(o.created_at)).reduce((sum, o) => sum + o.amount_total, 0)
   const todayOrders = nonCancelled.filter((o) => isToday(o.created_at)).length
   const avgTime = calcAvgOrderTime(orders, resetAfter)
+  const currentWait = calcCurrentWait(orders, now)
   const newCount = orders.filter((o) => o.status === 'new').length
   const prepCount = orders.filter((o) => o.status === 'preparing').length
   const readyCount = orders.filter((o) => o.status === 'ready').length
   const completedToday = orders.filter((o) => o.status === 'completed' && isToday(o.created_at)).length
 
-  // Recent 5 orders
   const recentOrders = orders.slice(0, 5)
 
   return (
@@ -119,6 +136,10 @@ export default function OwnerPage() {
                 className="mt-2 text-[9px] font-bold uppercase bg-purple-900/40 text-purple-300 border border-purple-500/30 rounded-lg px-3 py-1 hover:bg-purple-800/50 transition-colors disabled:opacity-50">
                 {resetting ? 'Resetting...' : '↻ Reset Timer'}
               </button>
+            </div>
+            <div className="bg-[#1a1a1a] border border-red-500/30 rounded-xl px-5 py-3 text-center min-w-[140px]">
+              <p className="text-[9px] text-gray-500 uppercase tracking-widest mb-1">Current Wait</p>
+              <p className="text-3xl font-black text-red-400">{currentWait}</p>
             </div>
           </div>
         </div>

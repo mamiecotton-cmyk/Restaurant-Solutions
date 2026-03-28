@@ -54,6 +54,17 @@ function calcAvgOrderTime(orders: Order[], resetAfter: string | null): string {
   return `${avgMin}m ${avgSec}s`
 }
 
+function calcCurrentWait(orders: Order[], now: number): string {
+  const activeOrders = orders.filter((o) => o.status === 'new' || o.status === 'preparing')
+  if (activeOrders.length === 0) return '--'
+  const oldest = activeOrders.reduce((a, b) => new Date(a.created_at).getTime() < new Date(b.created_at).getTime() ? a : b)
+  const waitMs = now - new Date(oldest.created_at).getTime()
+  const waitMin = Math.floor(waitMs / 60000)
+  const waitSec = Math.floor((waitMs % 60000) / 1000)
+  if (waitMin === 0) return `${waitSec}s`
+  return `${waitMin}m ${waitSec}s`
+}
+
 function playChimeSound() {
   try {
     const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
@@ -100,15 +111,10 @@ export default function AdminPage() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [ordersRes, settingsRes] = await Promise.all([
-        fetch('/api/orders'),
-        fetch('/api/settings'),
-      ])
+      const [ordersRes, settingsRes] = await Promise.all([fetch('/api/orders'), fetch('/api/settings')])
       const ordersData = await ordersRes.json()
       const settingsData = await settingsRes.json()
-
       if (settingsData.value) setResetAfter(settingsData.value)
-
       if (Array.isArray(ordersData)) {
         if (!isFirstLoad.current) {
           const newReady = ordersData.filter((o: Order) => o.status === 'ready' && !knownReadyIds.current.has(o.id))
@@ -122,11 +128,7 @@ export default function AdminPage() {
     finally { setLoading(false) }
   }, [])
 
-  useEffect(() => {
-    fetchAll()
-    const interval = setInterval(fetchAll, 10000)
-    return () => clearInterval(interval)
-  }, [fetchAll])
+  useEffect(() => { fetchAll(); const interval = setInterval(fetchAll, 10000); return () => clearInterval(interval) }, [fetchAll])
 
   const updateStatus = async (id: string, newStatus: string) => {
     try {
@@ -145,6 +147,7 @@ export default function AdminPage() {
   const prepCount = orders.filter((o) => o.status === 'preparing').length
   const readyCount = orders.filter((o) => o.status === 'ready').length
   const avgTime = calcAvgOrderTime(orders, resetAfter)
+  const currentWait = calcCurrentWait(orders, now)
 
   return (
     <main className="bg-[#0a0a0a] min-h-screen px-3 pt-2 pb-4">
@@ -185,6 +188,10 @@ export default function AdminPage() {
             <div className="bg-[#1a1a1a] border border-[#D4AF37]/30 rounded-xl px-5 py-3 text-center min-w-[140px]">
               <p className="text-[9px] text-gray-500 uppercase tracking-widest mb-1">Avg Order Time</p>
               <p className="text-3xl font-black text-[#D4AF37]">{avgTime}</p>
+            </div>
+            <div className="bg-[#1a1a1a] border border-red-500/30 rounded-xl px-5 py-3 text-center min-w-[140px]">
+              <p className="text-[9px] text-gray-500 uppercase tracking-widest mb-1">Current Wait</p>
+              <p className="text-3xl font-black text-red-400">{currentWait}</p>
             </div>
           </div>
         </div>

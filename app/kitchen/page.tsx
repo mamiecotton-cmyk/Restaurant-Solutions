@@ -1,245 +1,334 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, DragEvent } from 'react'
 import Link from 'next/link'
 
-interface Order {
+interface MenuItem {
   id: string
-  stripe_session_id: string
-  customer_email: string | null
-  customer_name: string | null
-  items: Array<{ name: string; quantity: number; amount: number }>
-  amount_total: number
-  currency: string
-  status: 'new' | 'preparing' | 'ready' | 'completed' | 'cancelled'
-  created_at: string
-  updated_at: string
+  name: string
+  price: number
+  price_range: string
+  description: string
+  image_url: string
+  available: boolean
+  sort_order: number
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  new: { label: '🔔 NEW', color: 'text-yellow-300', bg: 'bg-yellow-900/40', border: 'border-yellow-500/50' },
-  preparing: { label: '🍳 COOKING', color: 'text-orange-300', bg: 'bg-orange-900/40', border: 'border-orange-500/50' },
-  ready: { label: '✅ READY', color: 'text-green-300', bg: 'bg-green-900/40', border: 'border-green-500/50' },
-  completed: { label: '📦 DONE', color: 'text-gray-400', bg: 'bg-gray-800/40', border: 'border-gray-600/50' },
-  cancelled: { label: '❌ CANCEL', color: 'text-red-400', bg: 'bg-red-900/40', border: 'border-red-500/50' },
-}
+function ImageDropZone({ imageUrl, onFile, uploading, label }: {
+  imageUrl?: string
+  onFile: (file: File) => void
+  uploading: boolean
+  label?: string
+}) {
+  const [dragging, setDragging] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
-const FORWARD_STATUS: Record<string, { next: string; label: string }> = {
-  new: { next: 'preparing', label: '🍳 START COOKING' },
-  preparing: { next: 'ready', label: '✅ READY FOR PICKUP' },
-}
-
-const ALL_STATUSES = ['new', 'preparing', 'ready', 'completed', 'cancelled']
-
-const VIEW_OPTIONS = [
-  { value: 'active', label: 'Active (New + Cooking)' },
-  { value: 'ready', label: 'Ready' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'cancelled', label: 'Cancelled' },
-  { value: 'all', label: 'All Orders' },
-]
-
-function formatName(fullName: string | null): string {
-  if (!fullName) return ''
-  const parts = fullName.trim().split(/\s+/)
-  if (parts.length === 1) return parts[0]
-  return `${parts[0]} ${parts[parts.length - 1][0]}.`
-}
-
-function calcAvgOrderTime(orders: Order[], resetAfter: string | null): string {
-  const cutoff = resetAfter ? new Date(resetAfter).getTime() : 0
-  const eligible = orders.filter(
-    (o) => (o.status === 'ready' || o.status === 'completed') && o.created_at && o.updated_at &&
-      new Date(o.created_at).getTime() >= cutoff && new Date(o.updated_at).getTime() >= cutoff
-  )
-  if (eligible.length === 0) return '--'
-  const totalMs = eligible.reduce((sum, o) => sum + (new Date(o.updated_at).getTime() - new Date(o.created_at).getTime()), 0)
-  const avgMs = totalMs / eligible.length
-  const avgMin = Math.floor(avgMs / 60000)
-  const avgSec = Math.floor((avgMs % 60000) / 1000)
-  if (avgMin === 0) return `${avgSec}s`
-  return `${avgMin}m ${avgSec}s`
-}
-
-function playNotificationSound() {
-  try {
-    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
-    ;[0, 0.2, 0.4].forEach((t) => {
-      const osc = audioCtx.createOscillator()
-      const gain = audioCtx.createGain()
-      osc.connect(gain); gain.connect(audioCtx.destination)
-      osc.frequency.value = 880; osc.type = 'sine'; gain.gain.value = 0.3
-      osc.start(audioCtx.currentTime + t); osc.stop(audioCtx.currentTime + t + 0.12)
-    })
-  } catch (e) { console.warn('Sound error:', e) }
-}
-
-function printOrderTicket(order: Order) {
-  const itemsHtml = order.items.map((item) => `<tr><td style="text-align:left;padding:4px 0;font-size:16px;font-weight:bold;">${item.quantity}x ${item.name}</td></tr>`).join('')
-  const html = `<!DOCTYPE html><html><head><title>Kitchen Ticket</title><style>@page{margin:0;size:80mm auto}*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Courier New',monospace;width:80mm;padding:8mm 4mm;font-size:12px;color:#000}.header{text-align:center;border-bottom:2px dashed #000;padding-bottom:8px;margin-bottom:8px}.header h1{font-size:16px;font-weight:bold}.order-number{font-size:18px;font-weight:bold;text-align:center;padding:6px 0;border:3px solid #000;margin-bottom:8px}.customer{text-align:center;font-size:14px;font-weight:bold;margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed #000}table{width:100%;border-collapse:collapse}.footer{text-align:center;margin-top:12px;font-size:10px;border-top:2px dashed #000;padding-top:8px}</style></head><body><div class="header"><h1>KITCHEN TICKET</h1></div><div class="order-number">ORDER #${order.id.slice(0, 8).toUpperCase()}</div>${order.customer_name ? `<div class="customer">${formatName(order.customer_name)}</div>` : ''}<table><tbody>${itemsHtml}</tbody></table><div class="footer"><p>${new Date(order.created_at).toLocaleString()}</p></div></body></html>`
-  const w = window.open('', '_blank', 'width=320,height=600')
-  if (w) { w.document.write(html); w.document.close(); setTimeout(() => { w.print(); setTimeout(() => w.close(), 2000) }, 500) }
-}
-
-function isOlderThanMinutes(dateStr: string, minutes: number): boolean {
-  return Date.now() - new Date(dateStr).getTime() > minutes * 60 * 1000
-}
-
-function timeAgo(dateStr: string, now: number): string {
-  const diff = Math.floor((now - new Date(dateStr).getTime()) / 60000)
-  if (diff < 1) return 'now'
-  return `${diff}m`
-}
-
-export default function KitchenPage() {
-  const [orders, setOrders] = useState<Order[]>([])
-  const [loading, setLoading] = useState(true)
-  const [view, setView] = useState<string>('active')
-  const [now, setNow] = useState(Date.now())
-  const [autoPrint, setAutoPrint] = useState(true)
-  const [resetAfter, setResetAfter] = useState<string | null>(null)
-  const knownOrderIds = useRef<Set<string>>(new Set())
-  const isFirstLoad = useRef(true)
-
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 5000)
-    return () => clearInterval(timer)
-  }, [])
-
-  const fetchAll = useCallback(async () => {
-    try {
-      const [ordersRes, settingsRes] = await Promise.all([
-        fetch('/api/orders'),
-        fetch('/api/settings'),
-      ])
-      const ordersData = await ordersRes.json()
-      const settingsData = await settingsRes.json()
-
-      if (settingsData.value) setResetAfter(settingsData.value)
-
-      if (Array.isArray(ordersData)) {
-        if (!isFirstLoad.current) {
-          const newIncoming = ordersData.filter((o: Order) => o.status === 'new' && !knownOrderIds.current.has(o.id))
-          if (newIncoming.length > 0) {
-            playNotificationSound()
-            if (autoPrint) newIncoming.forEach((order: Order) => printOrderTicket(order))
-          }
-        }
-        ordersData.forEach((o: Order) => knownOrderIds.current.add(o.id))
-        isFirstLoad.current = false
-        setOrders(ordersData)
-      }
-    } catch (err) { console.error('Failed to fetch:', err) }
-    finally { setLoading(false) }
-  }, [autoPrint])
-
-  useEffect(() => {
-    fetchAll()
-    const interval = setInterval(fetchAll, 10000)
-    return () => clearInterval(interval)
-  }, [fetchAll])
-
-  const updateStatus = async (id: string, newStatus: string) => {
-    try {
-      const res = await fetch(`/api/orders/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }) })
-      if (res.ok) setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status: newStatus as Order['status'] } : o)))
-    } catch (err) { console.error('Failed to update order:', err) }
+  const handleDrag = (e: DragEvent) => { e.preventDefault(); e.stopPropagation() }
+  const handleDragIn = (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); setDragging(true) }
+  const handleDragOut = (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); setDragging(false) }
+  const handleDrop = (e: DragEvent) => {
+    e.preventDefault(); e.stopPropagation(); setDragging(false)
+    const file = e.dataTransfer?.files?.[0]
+    if (file && file.type.startsWith('image/')) onFile(file)
   }
 
-  const filteredOrders = orders.filter((o) => {
-    if (view === 'active') return ['new', 'preparing'].includes(o.status)
-    if (view === 'all') return true
-    return o.status === view
-  })
+  return (
+    <div
+      onClick={() => inputRef.current?.click()}
+      onDragEnter={handleDragIn}
+      onDragLeave={handleDragOut}
+      onDragOver={handleDrag}
+      onDrop={handleDrop}
+      className={`relative cursor-pointer rounded-xl border-2 border-dashed transition-all overflow-hidden ${
+        dragging
+          ? 'border-purple-400 bg-purple-900/20'
+          : imageUrl
+          ? 'border-white/10 hover:border-purple-500/40'
+          : 'border-white/10 hover:border-purple-500/40 bg-[#0a0a0a]'
+      }`}
+      style={{ minHeight: '120px' }}
+    >
+      <input ref={inputRef} type="file" accept="image/*" className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = '' }} />
 
-  const newCount = orders.filter((o) => o.status === 'new').length
-  const cookingCount = orders.filter((o) => o.status === 'preparing').length
-  const avgTime = calcAvgOrderTime(orders, resetAfter)
+      {uploading ? (
+        <div className="flex items-center justify-center h-full min-h-[120px]">
+          <p className="text-purple-300 text-xs font-bold uppercase animate-pulse">Uploading...</p>
+        </div>
+      ) : imageUrl ? (
+        <div className="relative">
+          <img src={imageUrl} alt="" className="w-full h-32 object-cover" />
+          <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+            <p className="text-white text-xs font-bold uppercase">Click or drop to replace</p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center py-6 px-4">
+          <span className="text-2xl mb-2">📷</span>
+          <p className="text-gray-400 text-xs font-bold uppercase text-center">{label || 'Drop image here'}</p>
+          <p className="text-gray-600 text-[10px] mt-1">or click to browse</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function MenuManagementPage() {
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [newItem, setNewItem] = useState({ name: '', price_range: '', price: 0, description: '' })
+  const [newItemImage, setNewItemImage] = useState<File | null>(null)
+  const [newItemPreview, setNewItemPreview] = useState<string>('')
+  const [saving, setSaving] = useState(false)
+  const [uploadingId, setUploadingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const fetchMenu = useCallback(async () => {
+    try {
+      const res = await fetch('/api/menu')
+      const data = await res.json()
+      if (Array.isArray(data)) setMenuItems(data)
+    } catch (err) { console.error(err) }
+    finally { setLoading(false) }
+  }, [])
+
+  useEffect(() => { fetchMenu() }, [fetchMenu])
+
+  const toggleAvailability = async (item: MenuItem) => {
+    try {
+      const res = await fetch('/api/menu', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: item.id, available: !item.available }) })
+      if (res.ok) setMenuItems(prev => prev.map(m => m.id === item.id ? { ...m, available: !m.available } : m))
+    } catch (err) { console.error(err) }
+  }
+
+  const saveItem = async (item: MenuItem) => {
+    setSaving(true)
+    try {
+      const res = await fetch('/api/menu', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: item.id, name: item.name, price: item.price, price_range: item.price_range, description: item.description }) })
+      if (res.ok) { const updated = await res.json(); setMenuItems(prev => prev.map(m => m.id === item.id ? updated : m)); setEditingItem(null) }
+    } catch (err) { console.error(err) }
+    finally { setSaving(false) }
+  }
+
+  const uploadImage = async (itemId: string, file: File) => {
+    setUploadingId(itemId)
+    try {
+      const formData = new FormData(); formData.append('file', file); formData.append('itemId', itemId)
+      const res = await fetch('/api/menu/upload', { method: 'POST', body: formData })
+      if (res.ok) {
+        const { url } = await res.json()
+        setMenuItems(prev => prev.map(m => m.id === itemId ? { ...m, image_url: url } : m))
+        if (editingItem?.id === itemId) setEditingItem(prev => prev ? { ...prev, image_url: url } : null)
+      }
+    } catch (err) { console.error(err) }
+    finally { setUploadingId(null) }
+  }
+
+  const addItem = async () => {
+    if (!newItem.name) return
+    setSaving(true)
+    try {
+      const res = await fetch('/api/menu', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newItem) })
+      if (res.ok) {
+        const created = await res.json()
+        // If there's an image, upload it
+        if (newItemImage) {
+          const formData = new FormData(); formData.append('file', newItemImage); formData.append('itemId', created.id)
+          const uploadRes = await fetch('/api/menu/upload', { method: 'POST', body: formData })
+          if (uploadRes.ok) {
+            const { url } = await uploadRes.json()
+            created.image_url = url
+          }
+        }
+        setMenuItems(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)))
+        setNewItem({ name: '', price_range: '', price: 0, description: '' })
+        setNewItemImage(null)
+        setNewItemPreview('')
+        setShowAddForm(false)
+      }
+    } catch (err) { console.error(err) }
+    finally { setSaving(false) }
+  }
+
+  const handleNewItemImage = (file: File) => {
+    setNewItemImage(file)
+    const reader = new FileReader()
+    reader.onload = (e) => setNewItemPreview(e.target?.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  const deleteItem = async (id: string) => {
+    if (!confirm('Delete this menu item? This cannot be undone.')) return
+    setDeletingId(id)
+    try {
+      const res = await fetch(`/api/menu?id=${id}`, { method: 'DELETE' })
+      if (res.ok) setMenuItems(prev => prev.filter(m => m.id !== id))
+    } catch (err) { console.error(err) }
+    finally { setDeletingId(null) }
+  }
+
+  const unavailableCount = menuItems.filter(m => !m.available).length
 
   return (
-    <main className="bg-[#0a0a0a] min-h-screen px-3 pt-2 pb-4">
-      <style>{`
-        @keyframes urgentFlash {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-          50% { box-shadow: 0 0 16px 4px rgba(239, 68, 68, 0.5); }
-        }
-        .flash-urgent { animation: urgentFlash 1s ease-in-out infinite; }
-      `}</style>
-
-      <div className="max-w-[1600px] mx-auto">
-        <div className="flex items-start justify-between mb-4">
+    <main className="bg-[#0a0a0a] min-h-screen px-4 pt-2 pb-4">
+      <div className="max-w-[1400px] mx-auto">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-6">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-xl font-black text-orange-400 uppercase tracking-wide">🔥 Kitchen</h1>
-              <div className="flex gap-2">
-                {newCount > 0 && <span className="bg-yellow-600 text-black text-xs font-black px-2 py-1 rounded-full">{newCount} NEW</span>}
-                {cookingCount > 0 && <span className="bg-orange-600 text-white text-xs font-black px-2 py-1 rounded-full">{cookingCount} COOKING</span>}
-              </div>
+              <Link href="/owner" className="text-gray-500 hover:text-purple-400 text-sm transition-colors">← Dashboard</Link>
             </div>
-            <div className="flex items-center gap-2">
-              <select value={view} onChange={(e) => setView(e.target.value)} className="text-xs font-bold uppercase bg-[#1a1a1a] text-gray-300 border border-white/10 rounded-lg px-3 py-1.5 cursor-pointer">
-                {VIEW_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-              </select>
-              <button onClick={() => setAutoPrint(!autoPrint)} className={`text-xs font-bold uppercase px-3 py-1.5 rounded-lg border transition-colors ${autoPrint ? 'bg-green-900/40 border-green-500/50 text-green-300' : 'bg-[#1a1a1a] border-white/10 text-gray-500'}`}>
-                🖨️ {autoPrint ? 'ON' : 'OFF'}
-              </button>
-              <button onClick={() => { setLoading(true); fetchAll() }} className="text-xs bg-[#1a1a1a] border border-white/10 text-gray-300 px-3 py-1.5 rounded-lg">↻</button>
-            </div>
+            <h1 className="text-xl font-black text-purple-400 uppercase tracking-wide">🍽️ Menu Management</h1>
+            <p className="text-[10px] text-gray-500 mt-1">{menuItems.length} items{unavailableCount > 0 ? ` · ${unavailableCount} sold out` : ''}</p>
           </div>
-
           <div className="flex flex-col items-end gap-2">
             <div className="flex gap-1">
-              <Link href="/kitchen" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-white/10 text-white">🔥 Kitchen</Link>
+              <Link href="/kitchen" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full text-gray-600 hover:text-gray-400">🔥 Kitchen</Link>
               <Link href="/admin" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full text-gray-600 hover:text-gray-400">📋 Front</Link>
-              <Link href="/owner" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full text-gray-600 hover:text-gray-400">📊 Owner</Link>
+              <Link href="/owner" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-white/10 text-white">📊 Owner</Link>
             </div>
-            <div className="bg-[#1a1a1a] border border-orange-500/30 rounded-xl px-5 py-3 text-center min-w-[140px]">
-              <p className="text-[9px] text-gray-500 uppercase tracking-widest mb-1">Avg Order Time</p>
-              <p className="text-3xl font-black text-orange-400">{avgTime}</p>
-            </div>
+            <button onClick={() => { setShowAddForm(!showAddForm); if (showAddForm) { setNewItemImage(null); setNewItemPreview('') } }}
+              className="text-xs font-bold uppercase bg-purple-900/40 text-purple-300 border border-purple-500/30 rounded-lg px-4 py-2 hover:bg-purple-800/50 transition-colors">
+              {showAddForm ? '✕ Cancel' : '+ Add Item'}
+            </button>
           </div>
         </div>
 
-        {loading ? (
-          <div className="text-center py-20 text-gray-500">Loading orders...</div>
-        ) : filteredOrders.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-gray-500 text-lg">No orders</p>
-            <p className="text-gray-600 text-sm mt-1">Waiting for orders...</p>
+        {/* Add New Item Form */}
+        {showAddForm && (
+          <div className="bg-[#1a1a1a] border border-purple-500/20 rounded-xl p-5 mb-6">
+            <p className="text-xs font-bold text-purple-300 uppercase mb-4">New Menu Item</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Image drop zone */}
+              <div>
+                <ImageDropZone
+                  imageUrl={newItemPreview}
+                  onFile={handleNewItemImage}
+                  uploading={false}
+                  label="Drop item image here"
+                />
+                {newItemImage && (
+                  <p className="text-[10px] text-gray-500 mt-1 truncate">{newItemImage.name}</p>
+                )}
+              </div>
+              {/* Form fields */}
+              <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[9px] text-gray-500 uppercase tracking-wider block mb-1">Name *</label>
+                  <input type="text" placeholder="e.g. Crispy Catfish" value={newItem.name} onChange={e => setNewItem({ ...newItem, name: e.target.value })}
+                    className="w-full text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50" />
+                </div>
+                <div>
+                  <label className="text-[9px] text-gray-500 uppercase tracking-wider block mb-1">Price Range</label>
+                  <input type="text" placeholder="e.g. $14 – $20" value={newItem.price_range} onChange={e => setNewItem({ ...newItem, price_range: e.target.value })}
+                    className="w-full text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50" />
+                </div>
+                <div>
+                  <label className="text-[9px] text-gray-500 uppercase tracking-wider block mb-1">Price (cents)</label>
+                  <input type="number" placeholder="e.g. 1700" value={newItem.price || ''} onChange={e => setNewItem({ ...newItem, price: parseInt(e.target.value) || 0 })}
+                    className="w-full text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50" />
+                </div>
+                <div>
+                  <label className="text-[9px] text-gray-500 uppercase tracking-wider block mb-1">Description</label>
+                  <input type="text" placeholder="Short description" value={newItem.description} onChange={e => setNewItem({ ...newItem, description: e.target.value })}
+                    className="w-full text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50" />
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button onClick={addItem} disabled={saving || !newItem.name}
+                className="text-xs font-bold uppercase bg-purple-600 text-white rounded-lg px-8 py-2.5 hover:bg-purple-500 transition-colors disabled:opacity-50">
+                {saving ? 'Adding...' : '+ Add to Menu'}
+              </button>
+            </div>
           </div>
+        )}
+
+        {/* Menu Items */}
+        {loading ? (
+          <div className="text-center py-20 text-gray-500">Loading menu...</div>
+        ) : menuItems.length === 0 ? (
+          <div className="text-center py-20"><p className="text-gray-500">No menu items. Click "+ Add Item" to get started.</p></div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-            {filteredOrders.map((order) => {
-              const config = STATUS_CONFIG[order.status]
-              const forward = FORWARD_STATUS[order.status]
-              const isUrgent = order.status === 'new' && isOlderThanMinutes(order.created_at, 2)
+          <div className="space-y-3">
+            {menuItems.map(item => {
+              const isEditing = editingItem?.id === item.id
               return (
-                <div key={order.id} className={`border rounded-xl p-3 flex flex-col justify-between ${config.bg} ${config.border} ${isUrgent ? 'flash-urgent border-red-500 border-2' : ''}`}>
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className={`font-black text-[11px] uppercase ${isUrgent ? 'text-red-400' : config.color}`}>{isUrgent ? '🚨 URGENT' : config.label}</span>
-                      <span className={`text-[10px] font-mono ${isUrgent ? 'text-red-400 font-bold' : 'text-gray-500'}`}>{timeAgo(order.created_at, now)}</span>
+                <div key={item.id} className={`bg-[#1a1a1a] border rounded-xl p-4 transition-all ${item.available ? 'border-white/5' : 'border-red-500/20'}`}>
+                  {isEditing ? (
+                    /* Edit Mode */
+                    <div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        {/* Image drop zone for editing */}
+                        <div>
+                          <label className="text-[9px] text-gray-500 uppercase tracking-wider block mb-1">Image</label>
+                          <ImageDropZone
+                            imageUrl={editingItem.image_url}
+                            onFile={(file) => uploadImage(item.id, file)}
+                            uploading={uploadingId === item.id}
+                          />
+                        </div>
+                        {/* Form fields */}
+                        <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[9px] text-gray-500 uppercase tracking-wider block mb-1">Name</label>
+                            <input type="text" value={editingItem.name} onChange={e => setEditingItem({ ...editingItem, name: e.target.value })}
+                              className="w-full text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500/50" />
+                          </div>
+                          <div>
+                            <label className="text-[9px] text-gray-500 uppercase tracking-wider block mb-1">Price Range</label>
+                            <input type="text" value={editingItem.price_range} onChange={e => setEditingItem({ ...editingItem, price_range: e.target.value })}
+                              className="w-full text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500/50" />
+                          </div>
+                          <div>
+                            <label className="text-[9px] text-gray-500 uppercase tracking-wider block mb-1">Price (cents)</label>
+                            <input type="number" value={editingItem.price} onChange={e => setEditingItem({ ...editingItem, price: parseInt(e.target.value) || 0 })}
+                              className="w-full text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500/50" />
+                          </div>
+                          <div>
+                            <label className="text-[9px] text-gray-500 uppercase tracking-wider block mb-1">Description</label>
+                            <input type="text" value={editingItem.description} onChange={e => setEditingItem({ ...editingItem, description: e.target.value })}
+                              className="w-full text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500/50" />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <button onClick={() => setEditingItem(null)}
+                          className="text-xs font-bold uppercase bg-[#0a0a0a] text-gray-400 border border-white/10 rounded-lg px-5 py-2 hover:text-white transition-colors">Cancel</button>
+                        <button onClick={() => saveItem(editingItem)} disabled={saving}
+                          className="text-xs font-bold uppercase bg-green-600 text-white rounded-lg px-5 py-2 hover:bg-green-500 transition-colors disabled:opacity-50">{saving ? 'Saving...' : '✓ Save Changes'}</button>
+                      </div>
                     </div>
-                    {order.customer_name && <p className="text-gray-400 text-xs font-semibold mb-2 truncate">{formatName(order.customer_name)}</p>}
-                    <div className="space-y-1.5 mb-2">
-                      {order.items.map((item, i) => <p key={i} className="text-white font-black text-xl leading-tight">{item.quantity}× {item.name}</p>)}
-                    </div>
-                    <p className="text-gray-600 text-[9px] font-mono mb-3">#{order.id.slice(0, 6).toUpperCase()}</p>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    {forward && (
-                      <button onClick={() => updateStatus(order.id, forward.next)} className="w-full text-sm font-black uppercase px-2 py-3 rounded-lg bg-orange-500 text-black hover:bg-orange-400 active:scale-95 transition-all">{forward.label}</button>
-                    )}
-                    <div className="flex gap-1.5">
-                      <button onClick={() => printOrderTicket(order)} className="flex-1 text-[10px] font-bold uppercase px-2 py-2 rounded-lg bg-green-900/50 text-green-300 hover:bg-green-800/60 active:scale-95 transition-all">🖨️ Print</button>
-                      {order.status !== 'cancelled' && order.status !== 'completed' && (
-                        <button onClick={() => updateStatus(order.id, 'cancelled')} className="text-[10px] font-bold uppercase px-3 py-2 rounded-lg bg-red-900/30 text-red-400/60 hover:bg-red-900/50 hover:text-red-300 active:scale-95 transition-all">✕</button>
+                  ) : (
+                    /* Display Mode */
+                    <div className="flex items-center gap-4">
+                      {item.image_url ? (
+                        <img src={item.image_url} alt={item.name} className="w-20 h-20 rounded-xl object-cover flex-shrink-0" />
+                      ) : (
+                        <div className="w-20 h-20 rounded-xl bg-[#0a0a0a] flex items-center justify-center flex-shrink-0">
+                          <span className="text-gray-700 text-3xl">🍽️</span>
+                        </div>
                       )}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-base font-bold ${item.available ? 'text-white' : 'text-gray-500 line-through'}`}>{item.name}</p>
+                        <p className="text-sm text-[#D4AF37]">{item.price_range} <span className="text-gray-600 text-[10px]">(${(item.price / 100).toFixed(2)})</span></p>
+                        {item.description && <p className="text-xs text-gray-500 mt-1">{item.description}</p>}
+                        {!item.available && <p className="text-[10px] text-red-400 font-bold uppercase mt-1">Sold Out</p>}
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <button onClick={() => setEditingItem({ ...item })}
+                          className="text-xs font-bold uppercase text-gray-400 hover:text-purple-300 transition-colors px-3 py-2 bg-[#0a0a0a] rounded-lg border border-white/5 hover:border-purple-500/30">✏️ Edit</button>
+                        <button onClick={() => toggleAvailability(item)}
+                          className={`w-12 h-7 rounded-full flex items-center transition-colors cursor-pointer ${item.available ? 'bg-green-500 justify-end' : 'bg-red-500/40 justify-start'}`}>
+                          <div className="w-6 h-6 bg-white rounded-full shadow mx-0.5" />
+                        </button>
+                        <button onClick={() => deleteItem(item.id)} disabled={deletingId === item.id}
+                          className="text-xs font-bold text-red-400/40 hover:text-red-400 transition-colors px-2 py-2 disabled:opacity-50">🗑️</button>
+                      </div>
                     </div>
-                    <select value={order.status} onChange={(e) => updateStatus(order.id, e.target.value)} className="w-full text-[10px] font-bold uppercase bg-[#111] text-gray-500 border border-white/5 rounded-lg px-2 py-1.5 cursor-pointer text-center">
-                      {ALL_STATUSES.map((s) => <option key={s} value={s}>{s === order.status ? `● ${s.toUpperCase()}` : s.toUpperCase()}</option>)}
-                    </select>
-                  </div>
+                  )}
                 </div>
               )
             })}
