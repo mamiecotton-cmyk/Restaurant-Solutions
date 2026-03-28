@@ -128,6 +128,7 @@ export default function OwnerPage() {
               <Link href="/kitchen" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full text-gray-600 hover:text-gray-400">🔥 Kitchen</Link>
               <Link href="/admin" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full text-gray-600 hover:text-gray-400">📋 Front</Link>
               <Link href="/owner" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-white/10 text-white">📊 Owner</Link>
+              <Link href="/settings" className="ml-auto text-lg" title="Settings">⚙️</Link>
             </div>
             <div className="bg-[#1a1a1a] border border-purple-500/30 rounded-xl px-5 py-3 text-center min-w-[140px]">
               <p className="text-[9px] text-gray-500 uppercase tracking-widest mb-1">Avg Order Time</p>

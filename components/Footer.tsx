@@ -1,5 +1,6 @@
 'use client'
 import Image from 'next/image'
+import Link from 'next/link'
 import ThemeToggle from './ThemeToggle'
 
 export default function Footer() {
@@ -114,6 +115,7 @@ export default function Footer() {
               Northwest Soul. Real Flavor.
             </p>
             <ThemeToggle />
+            <Link href="/settings" className="text-gray-400 hover:text-[#D4AF37] transition-colors" title="Settings">⚙️</Link>
           </div>
         </div>
       </div>
