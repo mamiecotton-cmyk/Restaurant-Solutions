@@ -6,7 +6,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from('menu_items')
     .select('*')
-    .order('sort_order')
+    .order('name')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
@@ -19,7 +19,6 @@ export async function POST(req: Request) {
 
   if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
 
-  // Get max sort_order
   const { data: existing } = await supabase
     .from('menu_items')
     .select('sort_order')
