@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 
 interface Order {
@@ -21,7 +21,10 @@ interface MenuItem {
   name: string
   price: number
   price_range: string
+  description: string
+  image_url: string
   available: boolean
+  sort_order: number
 }
 
 const ALL_STATUSES = ['new', 'preparing', 'ready', 'completed', 'cancelled']
@@ -89,7 +92,13 @@ export default function OwnerPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [resetAfter, setResetAfter] = useState<string | null>(null)
   const [resetting, setResetting] = useState(false)
-  const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [newItem, setNewItem] = useState({ name: '', price_range: '', price: 0, description: '' })
+  const [saving, setSaving] = useState(false)
+  const [uploadingId, setUploadingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -135,20 +144,82 @@ export default function OwnerPage() {
   }
 
   const toggleAvailability = async (item: MenuItem) => {
-    setTogglingId(item.id)
     try {
       const res = await fetch('/api/menu', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: item.id, available: !item.available }),
       })
-      if (res.ok) {
-        setMenuItems((prev) =>
-          prev.map((m) => (m.id === item.id ? { ...m, available: !m.available } : m))
-        )
-      }
+      if (res.ok) setMenuItems((prev) => prev.map((m) => (m.id === item.id ? { ...m, available: !m.available } : m)))
     } catch (err) { console.error('Failed to toggle:', err) }
-    finally { setTogglingId(null) }
+  }
+
+  const saveItem = async (item: MenuItem) => {
+    setSaving(true)
+    try {
+      const res = await fetch('/api/menu', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          price_range: item.price_range,
+          description: item.description,
+        }),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setMenuItems((prev) => prev.map((m) => (m.id === item.id ? updated : m)))
+        setEditingItem(null)
+      }
+    } catch (err) { console.error('Failed to save:', err) }
+    finally { setSaving(false) }
+  }
+
+  const addItem = async () => {
+    if (!newItem.name) return
+    setSaving(true)
+    try {
+      const res = await fetch('/api/menu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newItem),
+      })
+      if (res.ok) {
+        const created = await res.json()
+        setMenuItems((prev) => [...prev, created])
+        setNewItem({ name: '', price_range: '', price: 0, description: '' })
+        setShowAddForm(false)
+      }
+    } catch (err) { console.error('Failed to add:', err) }
+    finally { setSaving(false) }
+  }
+
+  const deleteItem = async (id: string) => {
+    if (!confirm('Delete this menu item? This cannot be undone.')) return
+    setDeletingId(id)
+    try {
+      const res = await fetch(`/api/menu?id=${id}`, { method: 'DELETE' })
+      if (res.ok) setMenuItems((prev) => prev.filter((m) => m.id !== id))
+    } catch (err) { console.error('Failed to delete:', err) }
+    finally { setDeletingId(null) }
+  }
+
+  const uploadImage = async (itemId: string, file: File) => {
+    setUploadingId(itemId)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('itemId', itemId)
+      const res = await fetch('/api/menu/upload', { method: 'POST', body: formData })
+      if (res.ok) {
+        const { url } = await res.json()
+        setMenuItems((prev) => prev.map((m) => (m.id === itemId ? { ...m, image_url: url } : m)))
+        if (editingItem?.id === itemId) setEditingItem({ ...editingItem, image_url: url })
+      }
+    } catch (err) { console.error('Failed to upload:', err) }
+    finally { setUploadingId(null) }
   }
 
   const updateStatus = async (id: string, newStatus: string) => {
@@ -177,6 +248,16 @@ export default function OwnerPage() {
 
   return (
     <main className="bg-[#0a0a0a] min-h-screen px-4 pt-2 pb-4">
+      {/* Hidden file input for image uploads */}
+      <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          const itemId = fileInputRef.current?.dataset.itemId
+          if (file && itemId) uploadImage(itemId, file)
+          e.target.value = ''
+        }}
+      />
+
       <div className="max-w-[1400px] mx-auto">
         {/* Top bar */}
         <div className="flex items-start justify-between mb-6">
@@ -185,7 +266,6 @@ export default function OwnerPage() {
             <button onClick={() => { setLoading(true); fetchOrders(); fetchMenu() }}
               className="text-[10px] bg-[#1a1a1a] border border-white/10 text-gray-300 px-3 py-1 rounded-full">↻ Refresh</button>
           </div>
-
           <div className="flex flex-col items-end gap-2">
             <div className="flex gap-1">
               <Link href="/kitchen" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full text-gray-600 hover:text-gray-400">🔥 Kitchen</Link>
@@ -225,41 +305,127 @@ export default function OwnerPage() {
           </div>
         </div>
 
-        {/* Menu Availability */}
+        {/* Menu Management */}
         <div className="bg-[#1a1a1a] border border-white/5 rounded-xl p-4 mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-black text-white uppercase tracking-wide">Menu Availability</h2>
-            {unavailableCount > 0 && (
-              <span className="bg-red-900/40 text-red-400 text-[10px] font-bold px-2 py-1 rounded-full">
-                {unavailableCount} SOLD OUT
-              </span>
-            )}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <h2 className="text-sm font-black text-white uppercase tracking-wide">Menu Management</h2>
+              {unavailableCount > 0 && (
+                <span className="bg-red-900/40 text-red-400 text-[10px] font-bold px-2 py-1 rounded-full">{unavailableCount} SOLD OUT</span>
+              )}
+            </div>
+            <button onClick={() => setShowAddForm(!showAddForm)}
+              className="text-xs font-bold uppercase bg-purple-900/40 text-purple-300 border border-purple-500/30 rounded-lg px-4 py-2 hover:bg-purple-800/50 transition-colors">
+              {showAddForm ? '✕ Cancel' : '+ Add Item'}
+            </button>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-            {menuItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => toggleAvailability(item)}
-                disabled={togglingId === item.id}
-                className={`flex items-center justify-between p-3 rounded-lg border transition-all active:scale-95 disabled:opacity-50 ${
-                  item.available
-                    ? 'bg-green-900/20 border-green-500/30 hover:border-green-500/50'
-                    : 'bg-red-900/20 border-red-500/30 hover:border-red-500/50'
-                }`}
-              >
-                <div className="text-left">
-                  <p className={`text-xs font-bold ${item.available ? 'text-white' : 'text-gray-500 line-through'}`}>
-                    {item.name}
-                  </p>
-                  <p className="text-[10px] text-gray-500">{item.price_range}</p>
-                </div>
-                <div className={`w-10 h-6 rounded-full flex items-center transition-colors ${
-                  item.available ? 'bg-green-500 justify-end' : 'bg-red-500/40 justify-start'
-                }`}>
-                  <div className="w-5 h-5 bg-white rounded-full shadow mx-0.5" />
-                </div>
+
+          {/* Add New Item Form */}
+          {showAddForm && (
+            <div className="bg-[#111] border border-purple-500/20 rounded-lg p-4 mb-4">
+              <p className="text-xs font-bold text-purple-300 uppercase mb-3">New Menu Item</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                <input type="text" placeholder="Item name *" value={newItem.name} onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                  className="text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50" />
+                <input type="text" placeholder="Price range (e.g. $14 – $20)" value={newItem.price_range} onChange={(e) => setNewItem({ ...newItem, price_range: e.target.value })}
+                  className="text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50" />
+                <input type="number" placeholder="Price in cents (e.g. 1700)" value={newItem.price || ''} onChange={(e) => setNewItem({ ...newItem, price: parseInt(e.target.value) || 0 })}
+                  className="text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50" />
+                <input type="text" placeholder="Description" value={newItem.description} onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                  className="text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50" />
+              </div>
+              <button onClick={addItem} disabled={saving || !newItem.name}
+                className="text-xs font-bold uppercase bg-purple-600 text-white rounded-lg px-6 py-2 hover:bg-purple-500 transition-colors disabled:opacity-50">
+                {saving ? 'Adding...' : '+ Add to Menu'}
               </button>
-            ))}
+            </div>
+          )}
+
+          {/* Menu Items Grid */}
+          <div className="space-y-2">
+            {menuItems.map((item) => {
+              const isEditing = editingItem?.id === item.id
+              return (
+                <div key={item.id} className={`border rounded-lg p-3 transition-all ${item.available ? 'border-white/5' : 'border-red-500/20 bg-red-900/10'}`}>
+                  {isEditing ? (
+                    /* Edit Mode */
+                    <div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+                        <div>
+                          <label className="text-[9px] text-gray-500 uppercase tracking-wider">Name</label>
+                          <input type="text" value={editingItem.name} onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
+                            className="w-full text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500/50" />
+                        </div>
+                        <div>
+                          <label className="text-[9px] text-gray-500 uppercase tracking-wider">Price Range</label>
+                          <input type="text" value={editingItem.price_range} onChange={(e) => setEditingItem({ ...editingItem, price_range: e.target.value })}
+                            className="w-full text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500/50" />
+                        </div>
+                        <div>
+                          <label className="text-[9px] text-gray-500 uppercase tracking-wider">Price (cents)</label>
+                          <input type="number" value={editingItem.price} onChange={(e) => setEditingItem({ ...editingItem, price: parseInt(e.target.value) || 0 })}
+                            className="w-full text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500/50" />
+                        </div>
+                        <div>
+                          <label className="text-[9px] text-gray-500 uppercase tracking-wider">Description</label>
+                          <input type="text" value={editingItem.description} onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })}
+                            className="w-full text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500/50" />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {/* Image preview + upload */}
+                        {editingItem.image_url && (
+                          <img src={editingItem.image_url} alt="" className="w-12 h-12 rounded-lg object-cover" />
+                        )}
+                        <button onClick={() => { if (fileInputRef.current) { fileInputRef.current.dataset.itemId = item.id; fileInputRef.current.click() } }}
+                          disabled={uploadingId === item.id}
+                          className="text-[10px] font-bold uppercase bg-[#0a0a0a] text-gray-300 border border-white/10 rounded-lg px-3 py-2 hover:border-purple-500/40 transition-colors disabled:opacity-50">
+                          {uploadingId === item.id ? 'Uploading...' : '📷 Upload Image'}
+                        </button>
+                        <div className="flex-1" />
+                        <button onClick={() => saveItem(editingItem)} disabled={saving}
+                          className="text-[10px] font-bold uppercase bg-green-600 text-white rounded-lg px-4 py-2 hover:bg-green-500 transition-colors disabled:opacity-50">
+                          {saving ? 'Saving...' : '✓ Save'}
+                        </button>
+                        <button onClick={() => setEditingItem(null)}
+                          className="text-[10px] font-bold uppercase bg-[#0a0a0a] text-gray-400 border border-white/10 rounded-lg px-4 py-2 hover:text-white transition-colors">
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Display Mode */
+                    <div className="flex items-center gap-3">
+                      {item.image_url && (
+                        <img src={item.image_url} alt={item.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className={`text-sm font-bold ${item.available ? 'text-white' : 'text-gray-500 line-through'}`}>{item.name}</p>
+                          <span className="text-[10px] text-[#D4AF37]">{item.price_range}</span>
+                          {item.description && <span className="text-[10px] text-gray-600 truncate">— {item.description}</span>}
+                        </div>
+                        <p className="text-[9px] text-gray-600 font-mono">ID: {item.id} · ${(item.price / 100).toFixed(2)}</p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button onClick={() => setEditingItem({ ...item })}
+                          className="text-[10px] font-bold uppercase text-gray-400 hover:text-purple-300 transition-colors px-2 py-1">
+                          ✏️ Edit
+                        </button>
+                        <button onClick={() => toggleAvailability(item)}
+                          className={`w-10 h-6 rounded-full flex items-center transition-colors cursor-pointer ${item.available ? 'bg-green-500 justify-end' : 'bg-red-500/40 justify-start'}`}>
+                          <div className="w-5 h-5 bg-white rounded-full shadow mx-0.5" />
+                        </button>
+                        <button onClick={() => deleteItem(item.id)} disabled={deletingId === item.id}
+                          className="text-[10px] font-bold text-red-400/40 hover:text-red-400 transition-colors px-1 disabled:opacity-50">
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
 

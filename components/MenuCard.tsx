@@ -7,11 +7,12 @@ interface MenuCardProps {
   priceRange: string
   imageSrc: string
   imageAlt: string
+  description?: string
   onOrder: () => void
   soldOut?: boolean
 }
 
-export default function MenuCard({ name, priceRange, imageSrc, imageAlt, onOrder, soldOut = false }: MenuCardProps) {
+export default function MenuCard({ name, priceRange, imageSrc, imageAlt, description, onOrder, soldOut = false }: MenuCardProps) {
   return (
     <div className={`group bg-[#111111] rounded-2xl overflow-hidden border border-white/5 transition-all duration-300 ${
       soldOut
@@ -32,7 +33,10 @@ export default function MenuCard({ name, priceRange, imageSrc, imageAlt, onOrder
       {/* Content */}
       <div className="p-5">
         <h3 className="text-xl font-black text-white uppercase tracking-wide mb-1">{name}</h3>
-        <p className="text-[#D4AF37] font-bold text-lg mb-4">{priceRange}</p>
+        <p className="text-[#D4AF37] font-bold text-lg mb-2">{priceRange}</p>
+        {description && (
+          <p className="text-gray-400 text-sm mb-3 leading-relaxed">{description}</p>
+        )}
         <button
           onClick={onOrder}
           disabled={soldOut}
