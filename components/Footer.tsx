@@ -1,5 +1,6 @@
 'use client'
 import Image from 'next/image'
+import ThemeToggle from './ThemeToggle'
 
 export default function Footer() {
   return (
@@ -108,9 +109,12 @@ export default function Footer() {
           <p className="text-gray-700 text-xs uppercase tracking-widest">
             © {new Date().getFullYear()} Wally&apos;s NW Soul Experience. All rights reserved.
           </p>
-          <p className="text-gray-700 text-xs uppercase tracking-widest">
-            Northwest Soul. Real Flavor.
-          </p>
+          <div className="flex flex-col md:flex-row items-center gap-4">
+            <p className="text-gray-700 text-xs uppercase tracking-widest">
+              Northwest Soul. Real Flavor.
+            </p>
+            <ThemeToggle />
+          </div>
         </div>
       </div>
     </footer>
