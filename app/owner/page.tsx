@@ -16,6 +16,14 @@ interface Order {
   updated_at: string
 }
 
+interface MenuItem {
+  id: string
+  name: string
+  price: number
+  price_range: string
+  available: boolean
+}
+
 const ALL_STATUSES = ['new', 'preparing', 'ready', 'completed', 'cancelled']
 
 function formatName(fullName: string | null): string {
@@ -38,9 +46,10 @@ function isThisMonth(dateStr: string): boolean {
   return d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear()
 }
 
-function calcAvgOrderTime(orders: Order[]): string {
+function calcAvgOrderTime(orders: Order[], resetAfter: string | null): string {
+  const cutoff = resetAfter ? new Date(resetAfter).getTime() : 0
   const eligible = orders.filter(
-    (o) => (o.status === 'ready' || o.status === 'completed') && o.created_at && o.updated_at
+    (o) => (o.status === 'ready' || o.status === 'completed') && o.created_at && o.updated_at && new Date(o.created_at).getTime() >= cutoff
   )
   if (eligible.length === 0) return '--'
   const totalMs = eligible.reduce((sum, o) => sum + (new Date(o.updated_at).getTime() - new Date(o.created_at).getTime()), 0)
@@ -74,41 +83,79 @@ function exportToCSV(orders: Order[]) {
 
 export default function OwnerPage() {
   const [orders, setOrders] = useState<Order[]>([])
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [resetAfter, setResetAfter] = useState<string | null>(null)
+  const [resetting, setResetting] = useState(false)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
 
   const fetchOrders = useCallback(async () => {
     try {
       const res = await fetch('/api/orders')
       const data = await res.json()
       if (Array.isArray(data)) setOrders(data)
-    } catch (err) {
-      console.error('Failed to fetch orders:', err)
-    } finally {
-      setLoading(false)
-    }
+    } catch (err) { console.error('Failed to fetch orders:', err) }
+    finally { setLoading(false) }
+  }, [])
+
+  const fetchMenu = useCallback(async () => {
+    try {
+      const res = await fetch('/api/menu')
+      const data = await res.json()
+      if (Array.isArray(data)) setMenuItems(data)
+    } catch (err) { console.error('Failed to fetch menu:', err) }
+  }, [])
+
+  const fetchSettings = useCallback(async () => {
+    try {
+      const res = await fetch('/api/settings')
+      const data = await res.json()
+      if (data.value) setResetAfter(data.value)
+    } catch (err) { console.error('Failed to fetch settings:', err) }
   }, [])
 
   useEffect(() => {
     fetchOrders()
+    fetchMenu()
+    fetchSettings()
     const interval = setInterval(fetchOrders, 15000)
     return () => clearInterval(interval)
-  }, [fetchOrders])
+  }, [fetchOrders, fetchMenu, fetchSettings])
+
+  const resetAvgTime = async () => {
+    setResetting(true)
+    try {
+      const res = await fetch('/api/settings', { method: 'POST' })
+      const data = await res.json()
+      if (data.value) setResetAfter(data.value)
+    } catch (err) { console.error('Failed to reset:', err) }
+    finally { setResetting(false) }
+  }
+
+  const toggleAvailability = async (item: MenuItem) => {
+    setTogglingId(item.id)
+    try {
+      const res = await fetch('/api/menu', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id, available: !item.available }),
+      })
+      if (res.ok) {
+        setMenuItems((prev) =>
+          prev.map((m) => (m.id === item.id ? { ...m, available: !m.available } : m))
+        )
+      }
+    } catch (err) { console.error('Failed to toggle:', err) }
+    finally { setTogglingId(null) }
+  }
 
   const updateStatus = async (id: string, newStatus: string) => {
     try {
-      const res = await fetch(`/api/orders/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      })
-      if (res.ok) {
-        setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status: newStatus as Order['status'] } : o)))
-      }
-    } catch (err) {
-      console.error('Failed to update order:', err)
-    }
+      const res = await fetch(`/api/orders/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }) })
+      if (res.ok) setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status: newStatus as Order['status'] } : o)))
+    } catch (err) { console.error('Failed to update order:', err) }
   }
 
   const nonCancelled = orders.filter((o) => o.status !== 'cancelled')
@@ -116,7 +163,8 @@ export default function OwnerPage() {
   const weekRevenue = nonCancelled.filter((o) => isThisWeek(o.created_at)).reduce((sum, o) => sum + o.amount_total, 0)
   const monthRevenue = nonCancelled.filter((o) => isThisMonth(o.created_at)).reduce((sum, o) => sum + o.amount_total, 0)
   const todayOrders = nonCancelled.filter((o) => isToday(o.created_at)).length
-  const avgTime = calcAvgOrderTime(orders)
+  const avgTime = calcAvgOrderTime(orders, resetAfter)
+  const unavailableCount = menuItems.filter((m) => !m.available).length
 
   const filteredOrders = orders.filter((o) => {
     if (statusFilter !== 'all' && o.status !== statusFilter) return false
@@ -132,14 +180,12 @@ export default function OwnerPage() {
       <div className="max-w-[1400px] mx-auto">
         {/* Top bar */}
         <div className="flex items-start justify-between mb-6">
-          {/* Left */}
           <div>
             <h1 className="text-xl font-black text-purple-400 uppercase tracking-wide mb-1">📊 Owner Dashboard</h1>
-            <button onClick={() => { setLoading(true); fetchOrders() }}
+            <button onClick={() => { setLoading(true); fetchOrders(); fetchMenu() }}
               className="text-[10px] bg-[#1a1a1a] border border-white/10 text-gray-300 px-3 py-1 rounded-full">↻ Refresh</button>
           </div>
 
-          {/* Right: View switcher + avg time box */}
           <div className="flex flex-col items-end gap-2">
             <div className="flex gap-1">
               <Link href="/kitchen" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full text-gray-600 hover:text-gray-400">🔥 Kitchen</Link>
@@ -149,6 +195,10 @@ export default function OwnerPage() {
             <div className="bg-[#1a1a1a] border border-purple-500/30 rounded-xl px-5 py-3 text-center min-w-[140px]">
               <p className="text-[9px] text-gray-500 uppercase tracking-widest mb-1">Avg Order Time</p>
               <p className="text-3xl font-black text-purple-400">{avgTime}</p>
+              <button onClick={resetAvgTime} disabled={resetting}
+                className="mt-2 text-[9px] font-bold uppercase bg-purple-900/40 text-purple-300 border border-purple-500/30 rounded-lg px-3 py-1 hover:bg-purple-800/50 transition-colors disabled:opacity-50">
+                {resetting ? 'Resetting...' : '↻ Reset Timer'}
+              </button>
             </div>
           </div>
         </div>
@@ -172,6 +222,44 @@ export default function OwnerPage() {
             <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Total Orders</p>
             <p className="text-2xl font-black text-white">{orders.length}</p>
             <p className="text-[10px] text-gray-600 mt-1">{orders.filter((o) => o.status === 'cancelled').length} cancelled</p>
+          </div>
+        </div>
+
+        {/* Menu Availability */}
+        <div className="bg-[#1a1a1a] border border-white/5 rounded-xl p-4 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-black text-white uppercase tracking-wide">Menu Availability</h2>
+            {unavailableCount > 0 && (
+              <span className="bg-red-900/40 text-red-400 text-[10px] font-bold px-2 py-1 rounded-full">
+                {unavailableCount} SOLD OUT
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+            {menuItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => toggleAvailability(item)}
+                disabled={togglingId === item.id}
+                className={`flex items-center justify-between p-3 rounded-lg border transition-all active:scale-95 disabled:opacity-50 ${
+                  item.available
+                    ? 'bg-green-900/20 border-green-500/30 hover:border-green-500/50'
+                    : 'bg-red-900/20 border-red-500/30 hover:border-red-500/50'
+                }`}
+              >
+                <div className="text-left">
+                  <p className={`text-xs font-bold ${item.available ? 'text-white' : 'text-gray-500 line-through'}`}>
+                    {item.name}
+                  </p>
+                  <p className="text-[10px] text-gray-500">{item.price_range}</p>
+                </div>
+                <div className={`w-10 h-6 rounded-full flex items-center transition-colors ${
+                  item.available ? 'bg-green-500 justify-end' : 'bg-red-500/40 justify-start'
+                }`}>
+                  <div className="w-5 h-5 bg-white rounded-full shadow mx-0.5" />
+                </div>
+              </button>
+            ))}
           </div>
         </div>
 
