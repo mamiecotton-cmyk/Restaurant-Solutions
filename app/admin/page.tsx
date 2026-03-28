@@ -39,14 +39,14 @@ function formatName(fullName: string | null): string {
   return `${parts[0]} ${parts[parts.length - 1][0]}.`
 }
 
-function calcAvgOrderTime(orders: Order[]): string {
+function calcAvgOrderTime(orders: Order[], resetAfter: string | null): string {
+  const cutoff = resetAfter ? new Date(resetAfter).getTime() : 0
   const eligible = orders.filter(
-    (o) => (o.status === 'ready' || o.status === 'completed') && o.created_at && o.updated_at
+    (o) => (o.status === 'ready' || o.status === 'completed') && o.created_at && o.updated_at &&
+      new Date(o.created_at).getTime() >= cutoff && new Date(o.updated_at).getTime() >= cutoff
   )
   if (eligible.length === 0) return '--'
-  const totalMs = eligible.reduce((sum, o) => {
-    return sum + (new Date(o.updated_at).getTime() - new Date(o.created_at).getTime())
-  }, 0)
+  const totalMs = eligible.reduce((sum, o) => sum + (new Date(o.updated_at).getTime() - new Date(o.created_at).getTime()), 0)
   const avgMs = totalMs / eligible.length
   const avgMin = Math.floor(avgMs / 60000)
   const avgSec = Math.floor((avgMs % 60000) / 1000)
@@ -57,34 +57,21 @@ function calcAvgOrderTime(orders: Order[]): string {
 function playChimeSound() {
   try {
     const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
-    const freqs = [523, 659, 784]
-    freqs.forEach((freq, i) => {
+    ;[523, 659, 784].forEach((freq, i) => {
       const osc = audioCtx.createOscillator()
       const gain = audioCtx.createGain()
-      osc.connect(gain)
-      gain.connect(audioCtx.destination)
-      osc.frequency.value = freq
-      osc.type = 'sine'
-      gain.gain.value = 0.25
-      osc.start(audioCtx.currentTime + i * 0.15)
-      osc.stop(audioCtx.currentTime + i * 0.15 + 0.2)
+      osc.connect(gain); gain.connect(audioCtx.destination)
+      osc.frequency.value = freq; osc.type = 'sine'; gain.gain.value = 0.25
+      osc.start(audioCtx.currentTime + i * 0.15); osc.stop(audioCtx.currentTime + i * 0.15 + 0.2)
     })
-  } catch (e) {
-    console.warn('Could not play chime:', e)
-  }
+  } catch (e) { console.warn('Sound error:', e) }
 }
 
 function printOrderReceipt(order: Order) {
-  const itemsHtml = order.items
-    .map((item) => `<tr><td style="text-align:left;padding:4px 0;">${item.quantity}x ${item.name}</td><td style="text-align:right;padding:4px 0;">$${(item.amount / 100).toFixed(2)}</td></tr>`)
-    .join('')
-  const receiptHtml = `<!DOCTYPE html><html><head><title>Receipt</title><style>@page{margin:0;size:80mm auto}*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Courier New',monospace;width:80mm;padding:8mm 4mm;font-size:12px;color:#000}.header{text-align:center;border-bottom:2px dashed #000;padding-bottom:8px;margin-bottom:8px}.header h1{font-size:18px;font-weight:bold;margin-bottom:2px}.header p{font-size:10px}.order-info{border-bottom:1px dashed #000;padding-bottom:8px;margin-bottom:8px}.order-info p{margin-bottom:2px}.label{font-weight:bold;font-size:11px}table{width:100%;border-collapse:collapse}.items-table{border-bottom:1px dashed #000;padding-bottom:8px;margin-bottom:8px}.total-row td{font-weight:bold;font-size:16px;padding-top:8px;border-top:2px dashed #000}.footer{text-align:center;margin-top:12px;font-size:10px}.order-number{font-size:14px;font-weight:bold;text-align:center;padding:6px 0;border:2px solid #000;margin-bottom:8px}</style></head><body><div class="header"><h1>WALLY'S NW SOUL</h1><p>Northwest Soul. Real Flavor.</p></div><div class="order-number">ORDER #${order.id.slice(0, 8).toUpperCase()}</div><div class="order-info"><p><span class="label">Date:</span> ${new Date(order.created_at).toLocaleString()}</p>${order.customer_name ? `<p><span class="label">Customer:</span> ${formatName(order.customer_name)}</p>` : ''}${order.customer_email ? `<p><span class="label">Email:</span> ${order.customer_email}</p>` : ''}</div><div class="items-table"><table><tbody>${itemsHtml}</tbody></table></div><table><tbody><tr class="total-row"><td style="text-align:left;">TOTAL</td><td style="text-align:right;">$${(order.amount_total / 100).toFixed(2)}</td></tr></tbody></table><div class="footer"><p>Thank you for your order!</p><p>Follow us @wallys_nw_soul</p></div></body></html>`
-  const printWindow = window.open('', '_blank', 'width=320,height=600')
-  if (printWindow) {
-    printWindow.document.write(receiptHtml)
-    printWindow.document.close()
-    setTimeout(() => { printWindow.print(); setTimeout(() => printWindow.close(), 2000) }, 500)
-  }
+  const itemsHtml = order.items.map((item) => `<tr><td style="text-align:left;padding:4px 0;">${item.quantity}x ${item.name}</td><td style="text-align:right;padding:4px 0;">$${(item.amount / 100).toFixed(2)}</td></tr>`).join('')
+  const html = `<!DOCTYPE html><html><head><title>Receipt</title><style>@page{margin:0;size:80mm auto}*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Courier New',monospace;width:80mm;padding:8mm 4mm;font-size:12px;color:#000}.header{text-align:center;border-bottom:2px dashed #000;padding-bottom:8px;margin-bottom:8px}.header h1{font-size:18px;font-weight:bold;margin-bottom:2px}.header p{font-size:10px}.order-info{border-bottom:1px dashed #000;padding-bottom:8px;margin-bottom:8px}.order-info p{margin-bottom:2px}.label{font-weight:bold;font-size:11px}table{width:100%;border-collapse:collapse}.items-table{border-bottom:1px dashed #000;padding-bottom:8px;margin-bottom:8px}.total-row td{font-weight:bold;font-size:16px;padding-top:8px;border-top:2px dashed #000}.footer{text-align:center;margin-top:12px;font-size:10px}.order-number{font-size:14px;font-weight:bold;text-align:center;padding:6px 0;border:2px solid #000;margin-bottom:8px}</style></head><body><div class="header"><h1>WALLY'S NW SOUL</h1><p>Northwest Soul. Real Flavor.</p></div><div class="order-number">ORDER #${order.id.slice(0, 8).toUpperCase()}</div><div class="order-info"><p><span class="label">Date:</span> ${new Date(order.created_at).toLocaleString()}</p>${order.customer_name ? `<p><span class="label">Customer:</span> ${formatName(order.customer_name)}</p>` : ''}${order.customer_email ? `<p><span class="label">Email:</span> ${order.customer_email}</p>` : ''}</div><div class="items-table"><table><tbody>${itemsHtml}</tbody></table></div><table><tbody><tr class="total-row"><td style="text-align:left;">TOTAL</td><td style="text-align:right;">$${(order.amount_total / 100).toFixed(2)}</td></tr></tbody></table><div class="footer"><p>Thank you for your order!</p><p>Follow us @wallys_nw_soul</p></div></body></html>`
+  const w = window.open('', '_blank', 'width=320,height=600')
+  if (w) { w.document.write(html); w.document.close(); setTimeout(() => { w.print(); setTimeout(() => w.close(), 2000) }, 500) }
 }
 
 function isOlderThanMinutes(dateStr: string, minutes: number): boolean {
@@ -102,6 +89,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('active')
   const [now, setNow] = useState(Date.now())
+  const [resetAfter, setResetAfter] = useState<string | null>(null)
   const knownReadyIds = useRef<Set<string>>(new Set())
   const isFirstLoad = useRef(true)
 
@@ -110,45 +98,41 @@ export default function AdminPage() {
     return () => clearInterval(timer)
   }, [])
 
-  const fetchOrders = useCallback(async () => {
+  const fetchAll = useCallback(async () => {
     try {
-      const res = await fetch('/api/orders')
-      const data = await res.json()
-      if (Array.isArray(data)) {
+      const [ordersRes, settingsRes] = await Promise.all([
+        fetch('/api/orders'),
+        fetch('/api/settings'),
+      ])
+      const ordersData = await ordersRes.json()
+      const settingsData = await settingsRes.json()
+
+      if (settingsData.value) setResetAfter(settingsData.value)
+
+      if (Array.isArray(ordersData)) {
         if (!isFirstLoad.current) {
-          const newReady = data.filter((o: Order) => o.status === 'ready' && !knownReadyIds.current.has(o.id))
+          const newReady = ordersData.filter((o: Order) => o.status === 'ready' && !knownReadyIds.current.has(o.id))
           if (newReady.length > 0) playChimeSound()
         }
-        data.filter((o: Order) => o.status === 'ready').forEach((o: Order) => knownReadyIds.current.add(o.id))
+        ordersData.filter((o: Order) => o.status === 'ready').forEach((o: Order) => knownReadyIds.current.add(o.id))
         isFirstLoad.current = false
-        setOrders(data)
+        setOrders(ordersData)
       }
-    } catch (err) {
-      console.error('Failed to fetch orders:', err)
-    } finally {
-      setLoading(false)
-    }
+    } catch (err) { console.error('Failed to fetch:', err) }
+    finally { setLoading(false) }
   }, [])
 
   useEffect(() => {
-    fetchOrders()
-    const interval = setInterval(fetchOrders, 10000)
+    fetchAll()
+    const interval = setInterval(fetchAll, 10000)
     return () => clearInterval(interval)
-  }, [fetchOrders])
+  }, [fetchAll])
 
   const updateStatus = async (id: string, newStatus: string) => {
     try {
-      const res = await fetch(`/api/orders/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      })
-      if (res.ok) {
-        setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status: newStatus as Order['status'] } : o)))
-      }
-    } catch (err) {
-      console.error('Failed to update order:', err)
-    }
+      const res = await fetch(`/api/orders/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }) })
+      if (res.ok) setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status: newStatus as Order['status'] } : o)))
+    } catch (err) { console.error('Failed to update order:', err) }
   }
 
   const filteredOrders = orders.filter((o) => {
@@ -160,7 +144,7 @@ export default function AdminPage() {
   const newCount = orders.filter((o) => o.status === 'new').length
   const prepCount = orders.filter((o) => o.status === 'preparing').length
   const readyCount = orders.filter((o) => o.status === 'ready').length
-  const avgTime = calcAvgOrderTime(orders)
+  const avgTime = calcAvgOrderTime(orders, resetAfter)
 
   return (
     <main className="bg-[#0a0a0a] min-h-screen px-3 pt-2 pb-4">
@@ -173,9 +157,7 @@ export default function AdminPage() {
       `}</style>
 
       <div className="max-w-[1600px] mx-auto">
-        {/* Top bar */}
         <div className="flex items-start justify-between mb-4">
-          {/* Left */}
           <div>
             <div className="flex items-center gap-3 mb-2">
               <h1 className="text-xl font-black text-[#D4AF37] uppercase tracking-wide">📋 Front Counter</h1>
@@ -185,21 +167,15 @@ export default function AdminPage() {
                 {readyCount > 0 && <span className="bg-green-600 text-white text-xs font-black px-2 py-1 rounded-full">{readyCount} READY</span>}
               </div>
             </div>
-            {/* Filters */}
             <div className="flex gap-1.5 flex-wrap">
               {['active', 'new', 'preparing', 'ready', 'completed', 'cancelled', 'all'].map((f) => (
                 <button key={f} onClick={() => setFilter(f)}
-                  className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full border transition-colors ${
-                    filter === f ? 'bg-[#D4AF37] text-black border-[#D4AF37]' : 'bg-[#1a1a1a] text-gray-400 border-white/10 hover:border-[#D4AF37]/40'}`}>
-                  {f}
-                </button>
+                  className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full border transition-colors ${filter === f ? 'bg-[#D4AF37] text-black border-[#D4AF37]' : 'bg-[#1a1a1a] text-gray-400 border-white/10 hover:border-[#D4AF37]/40'}`}>{f}</button>
               ))}
-              <button onClick={() => { setLoading(true); fetchOrders() }}
-                className="text-[10px] bg-[#1a1a1a] border border-white/10 text-gray-300 px-3 py-1.5 rounded-full">↻</button>
+              <button onClick={() => { setLoading(true); fetchAll() }} className="text-[10px] bg-[#1a1a1a] border border-white/10 text-gray-300 px-3 py-1.5 rounded-full">↻</button>
             </div>
           </div>
 
-          {/* Right: View switcher + avg time box */}
           <div className="flex flex-col items-end gap-2">
             <div className="flex gap-1">
               <Link href="/kitchen" className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full text-gray-600 hover:text-gray-400">🔥 Kitchen</Link>
@@ -213,7 +189,6 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Orders Grid */}
         {loading ? (
           <div className="text-center py-20 text-gray-500">Loading orders...</div>
         ) : filteredOrders.length === 0 ? (
@@ -225,8 +200,7 @@ export default function AdminPage() {
               const forward = FORWARD_STATUS[order.status]
               const isUrgent = order.status === 'ready' && isOlderThanMinutes(order.updated_at, 2)
               return (
-                <div key={order.id}
-                  className={`border rounded-xl p-3 flex flex-col justify-between ${config.bg} ${config.border} ${isUrgent ? 'flash-ready border-green-500 border-2' : ''}`}>
+                <div key={order.id} className={`border rounded-xl p-3 flex flex-col justify-between ${config.bg} ${config.border} ${isUrgent ? 'flash-ready border-green-500 border-2' : ''}`}>
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <span className={`font-black text-[11px] uppercase ${isUrgent ? 'text-green-300' : config.color}`}>{isUrgent ? '⚡ PICKUP' : config.label}</span>
@@ -238,20 +212,15 @@ export default function AdminPage() {
                     <div className="border-t border-white/10 pt-1.5 mb-2">
                       <p className="text-[#D4AF37] font-black text-lg">${(order.amount_total / 100).toFixed(2)}</p>
                     </div>
-                    <p className="text-gray-600 text-[9px] font-mono truncate mb-3">
-                      #{order.id.slice(0, 6).toUpperCase()}{order.customer_name ? ` · ${formatName(order.customer_name)}` : ''}
-                    </p>
+                    <p className="text-gray-600 text-[9px] font-mono truncate mb-3">#{order.id.slice(0, 6).toUpperCase()}{order.customer_name ? ` · ${formatName(order.customer_name)}` : ''}</p>
                   </div>
                   <div className="flex flex-col gap-1.5">
                     {forward && (
-                      <button onClick={() => updateStatus(order.id, forward.next)}
-                        className="w-full text-xs font-black uppercase px-2 py-2.5 rounded-lg bg-[#D4AF37] text-black hover:bg-yellow-400 active:scale-95 transition-all">{forward.label}</button>
+                      <button onClick={() => updateStatus(order.id, forward.next)} className="w-full text-xs font-black uppercase px-2 py-2.5 rounded-lg bg-[#D4AF37] text-black hover:bg-yellow-400 active:scale-95 transition-all">{forward.label}</button>
                     )}
                     <div className="flex gap-1.5">
-                      <button onClick={() => printOrderReceipt(order)}
-                        className="flex-1 text-[10px] font-bold uppercase px-2 py-2 rounded-lg bg-green-900/50 text-green-300 hover:bg-green-800/60 active:scale-95 transition-all">🖨️ Print</button>
-                      <select value={order.status} onChange={(e) => updateStatus(order.id, e.target.value)}
-                        className="text-[10px] font-bold uppercase bg-[#1a1a1a] text-gray-400 border border-white/10 rounded-lg px-2 py-2 cursor-pointer">
+                      <button onClick={() => printOrderReceipt(order)} className="flex-1 text-[10px] font-bold uppercase px-2 py-2 rounded-lg bg-green-900/50 text-green-300 hover:bg-green-800/60 active:scale-95 transition-all">🖨️ Print</button>
+                      <select value={order.status} onChange={(e) => updateStatus(order.id, e.target.value)} className="text-[10px] font-bold uppercase bg-[#1a1a1a] text-gray-400 border border-white/10 rounded-lg px-2 py-2 cursor-pointer">
                         {ALL_STATUSES.map((s) => <option key={s} value={s}>{s.toUpperCase()}</option>)}
                       </select>
                     </div>

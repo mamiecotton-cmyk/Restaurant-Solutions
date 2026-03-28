@@ -53,12 +53,8 @@ function isThisMonth(dateStr: string): boolean {
 function calcAvgOrderTime(orders: Order[], resetAfter: string | null): string {
   const cutoff = resetAfter ? new Date(resetAfter).getTime() : 0
   const eligible = orders.filter(
-    (o) =>
-      (o.status === 'ready' || o.status === 'completed') &&
-      o.created_at &&
-      o.updated_at &&
-      new Date(o.created_at).getTime() >= cutoff &&
-      new Date(o.updated_at).getTime() >= cutoff
+    (o) => (o.status === 'ready' || o.status === 'completed') && o.created_at && o.updated_at &&
+      new Date(o.created_at).getTime() >= cutoff && new Date(o.updated_at).getTime() >= cutoff
   )
   if (eligible.length === 0) return '--'
   const totalMs = eligible.reduce((sum, o) => sum + (new Date(o.updated_at).getTime() - new Date(o.created_at).getTime()), 0)
@@ -72,13 +68,9 @@ function calcAvgOrderTime(orders: Order[], resetAfter: string | null): string {
 function exportToCSV(orders: Order[]) {
   const headers = ['Order ID', 'Date', 'Customer', 'Email', 'Items', 'Total', 'Status']
   const rows = orders.map((o) => [
-    o.id.slice(0, 8).toUpperCase(),
-    new Date(o.created_at).toLocaleString(),
-    formatName(o.customer_name),
-    o.customer_email || '',
-    o.items.map((i) => `${i.quantity}x ${i.name}`).join('; '),
-    `$${(o.amount_total / 100).toFixed(2)}`,
-    o.status,
+    o.id.slice(0, 8).toUpperCase(), new Date(o.created_at).toLocaleString(), formatName(o.customer_name),
+    o.customer_email || '', o.items.map((i) => `${i.quantity}x ${i.name}`).join('; '),
+    `$${(o.amount_total / 100).toFixed(2)}`, o.status,
   ])
   const csv = [headers, ...rows].map((row) => row.map((cell) => `"${cell}"`).join(',')).join('\n')
   const blob = new Blob([csv], { type: 'text/csv' })
@@ -108,38 +100,29 @@ export default function OwnerPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const fetchOrders = useCallback(async () => {
+  const fetchAll = useCallback(async () => {
     try {
-      const res = await fetch('/api/orders')
-      const data = await res.json()
-      if (Array.isArray(data)) setOrders(data)
-    } catch (err) { console.error('Failed to fetch orders:', err) }
+      const [ordersRes, menuRes, settingsRes] = await Promise.all([
+        fetch('/api/orders'),
+        fetch('/api/menu'),
+        fetch('/api/settings'),
+      ])
+      const ordersData = await ordersRes.json()
+      const menuData = await menuRes.json()
+      const settingsData = await settingsRes.json()
+
+      if (Array.isArray(ordersData)) setOrders(ordersData)
+      if (Array.isArray(menuData)) setMenuItems(menuData)
+      if (settingsData.value) setResetAfter(settingsData.value)
+    } catch (err) { console.error('Failed to fetch:', err) }
     finally { setLoading(false) }
   }, [])
 
-  const fetchMenu = useCallback(async () => {
-    try {
-      const res = await fetch('/api/menu')
-      const data = await res.json()
-      if (Array.isArray(data)) setMenuItems(data)
-    } catch (err) { console.error('Failed to fetch menu:', err) }
-  }, [])
-
-  const fetchSettings = useCallback(async () => {
-    try {
-      const res = await fetch('/api/settings')
-      const data = await res.json()
-      if (data.value) setResetAfter(data.value)
-    } catch (err) { console.error('Failed to fetch settings:', err) }
-  }, [])
-
   useEffect(() => {
-    fetchOrders()
-    fetchMenu()
-    fetchSettings()
-    const interval = setInterval(fetchOrders, 15000)
+    fetchAll()
+    const interval = setInterval(fetchAll, 15000)
     return () => clearInterval(interval)
-  }, [fetchOrders, fetchMenu, fetchSettings])
+  }, [fetchAll])
 
   const resetAvgTime = async () => {
     setResetting(true)
@@ -153,11 +136,7 @@ export default function OwnerPage() {
 
   const toggleAvailability = async (item: MenuItem) => {
     try {
-      const res = await fetch('/api/menu', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: item.id, available: !item.available }),
-      })
+      const res = await fetch('/api/menu', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: item.id, available: !item.available }) })
       if (res.ok) setMenuItems((prev) => prev.map((m) => (m.id === item.id ? { ...m, available: !m.available } : m)))
     } catch (err) { console.error('Failed to toggle:', err) }
   }
@@ -165,16 +144,8 @@ export default function OwnerPage() {
   const saveItem = async (item: MenuItem) => {
     setSaving(true)
     try {
-      const res = await fetch('/api/menu', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: item.id, name: item.name, price: item.price, price_range: item.price_range, description: item.description }),
-      })
-      if (res.ok) {
-        const updated = await res.json()
-        setMenuItems((prev) => prev.map((m) => (m.id === item.id ? updated : m)))
-        setEditingItem(null)
-      }
+      const res = await fetch('/api/menu', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: item.id, name: item.name, price: item.price, price_range: item.price_range, description: item.description }) })
+      if (res.ok) { const updated = await res.json(); setMenuItems((prev) => prev.map((m) => (m.id === item.id ? updated : m))); setEditingItem(null) }
     } catch (err) { console.error('Failed to save:', err) }
     finally { setSaving(false) }
   }
@@ -183,17 +154,8 @@ export default function OwnerPage() {
     if (!newItem.name) return
     setSaving(true)
     try {
-      const res = await fetch('/api/menu', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newItem),
-      })
-      if (res.ok) {
-        const created = await res.json()
-        setMenuItems((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)))
-        setNewItem({ name: '', price_range: '', price: 0, description: '' })
-        setShowAddForm(false)
-      }
+      const res = await fetch('/api/menu', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newItem) })
+      if (res.ok) { const created = await res.json(); setMenuItems((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name))); setNewItem({ name: '', price_range: '', price: 0, description: '' }); setShowAddForm(false) }
     } catch (err) { console.error('Failed to add:', err) }
     finally { setSaving(false) }
   }
@@ -211,15 +173,9 @@ export default function OwnerPage() {
   const uploadImage = async (itemId: string, file: File) => {
     setUploadingId(itemId)
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('itemId', itemId)
+      const formData = new FormData(); formData.append('file', file); formData.append('itemId', itemId)
       const res = await fetch('/api/menu/upload', { method: 'POST', body: formData })
-      if (res.ok) {
-        const { url } = await res.json()
-        setMenuItems((prev) => prev.map((m) => (m.id === itemId ? { ...m, image_url: url } : m)))
-        if (editingItem?.id === itemId) setEditingItem({ ...editingItem, image_url: url })
-      }
+      if (res.ok) { const { url } = await res.json(); setMenuItems((prev) => prev.map((m) => (m.id === itemId ? { ...m, image_url: url } : m))); if (editingItem?.id === itemId) setEditingItem({ ...editingItem, image_url: url }) }
     } catch (err) { console.error('Failed to upload:', err) }
     finally { setUploadingId(null) }
   }
@@ -231,7 +187,6 @@ export default function OwnerPage() {
     } catch (err) { console.error('Failed to update order:', err) }
   }
 
-  // Revenue calculations
   const nonCancelled = orders.filter((o) => o.status !== 'cancelled')
   const todayRevenue = nonCancelled.filter((o) => isToday(o.created_at)).reduce((sum, o) => sum + o.amount_total, 0)
   const weekRevenue = nonCancelled.filter((o) => isThisWeek(o.created_at)).reduce((sum, o) => sum + o.amount_total, 0)
@@ -240,44 +195,30 @@ export default function OwnerPage() {
   const avgTime = calcAvgOrderTime(orders, resetAfter)
   const unavailableCount = menuItems.filter((m) => !m.available).length
 
-  // Filter orders
   const filteredOrders = orders.filter((o) => {
     if (statusFilter !== 'all' && o.status !== statusFilter) return false
     if (dateFilter === 'today' && !isToday(o.created_at)) return false
     if (dateFilter === 'week' && !isThisWeek(o.created_at)) return false
     if (dateFilter === 'month' && !isThisMonth(o.created_at)) return false
-    if (search) {
-      const q = search.toLowerCase()
-      return o.customer_name?.toLowerCase().includes(q) || o.id.toLowerCase().includes(q) || o.customer_email?.toLowerCase().includes(q) || o.items.some((i) => i.name.toLowerCase().includes(q))
-    }
+    if (search) { const q = search.toLowerCase(); return o.customer_name?.toLowerCase().includes(q) || o.id.toLowerCase().includes(q) || o.customer_email?.toLowerCase().includes(q) || o.items.some((i) => i.name.toLowerCase().includes(q)) }
     return true
   })
 
-  // Pagination
   const totalPages = Math.ceil(filteredOrders.length / ORDERS_PER_PAGE)
   const paginatedOrders = filteredOrders.slice((page - 1) * ORDERS_PER_PAGE, page * ORDERS_PER_PAGE)
 
-  // Reset page when filters change
   useEffect(() => { setPage(1) }, [search, statusFilter, dateFilter])
 
   return (
     <main className="bg-[#0a0a0a] min-h-screen px-4 pt-2 pb-4">
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0]
-          const itemId = fileInputRef.current?.dataset.itemId
-          if (file && itemId) uploadImage(itemId, file)
-          e.target.value = ''
-        }}
-      />
+        onChange={(e) => { const file = e.target.files?.[0]; const itemId = fileInputRef.current?.dataset.itemId; if (file && itemId) uploadImage(itemId, file); e.target.value = '' }} />
 
       <div className="max-w-[1400px] mx-auto">
-        {/* Top bar */}
         <div className="flex items-start justify-between mb-6">
           <div>
             <h1 className="text-xl font-black text-purple-400 uppercase tracking-wide mb-1">📊 Owner Dashboard</h1>
-            <button onClick={() => { setLoading(true); fetchOrders(); fetchMenu() }}
-              className="text-[10px] bg-[#1a1a1a] border border-white/10 text-gray-300 px-3 py-1 rounded-full">↻ Refresh</button>
+            <button onClick={() => { setLoading(true); fetchAll() }} className="text-[10px] bg-[#1a1a1a] border border-white/10 text-gray-300 px-3 py-1 rounded-full">↻ Refresh</button>
           </div>
           <div className="flex flex-col items-end gap-2">
             <div className="flex gap-1">
@@ -323,12 +264,9 @@ export default function OwnerPage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <h2 className="text-sm font-black text-white uppercase tracking-wide">Menu Management</h2>
-              {unavailableCount > 0 && (
-                <span className="bg-red-900/40 text-red-400 text-[10px] font-bold px-2 py-1 rounded-full">{unavailableCount} SOLD OUT</span>
-              )}
+              {unavailableCount > 0 && <span className="bg-red-900/40 text-red-400 text-[10px] font-bold px-2 py-1 rounded-full">{unavailableCount} SOLD OUT</span>}
             </div>
-            <button onClick={() => setShowAddForm(!showAddForm)}
-              className="text-xs font-bold uppercase bg-purple-900/40 text-purple-300 border border-purple-500/30 rounded-lg px-4 py-2 hover:bg-purple-800/50 transition-colors">
+            <button onClick={() => setShowAddForm(!showAddForm)} className="text-xs font-bold uppercase bg-purple-900/40 text-purple-300 border border-purple-500/30 rounded-lg px-4 py-2 hover:bg-purple-800/50 transition-colors">
               {showAddForm ? '✕ Cancel' : '+ Add Item'}
             </button>
           </div>
@@ -337,17 +275,12 @@ export default function OwnerPage() {
             <div className="bg-[#111] border border-purple-500/20 rounded-lg p-4 mb-4">
               <p className="text-xs font-bold text-purple-300 uppercase mb-3">New Menu Item</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                <input type="text" placeholder="Item name *" value={newItem.name} onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                  className="text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50" />
-                <input type="text" placeholder="Price range (e.g. $14 – $20)" value={newItem.price_range} onChange={(e) => setNewItem({ ...newItem, price_range: e.target.value })}
-                  className="text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50" />
-                <input type="number" placeholder="Price in cents (e.g. 1700)" value={newItem.price || ''} onChange={(e) => setNewItem({ ...newItem, price: parseInt(e.target.value) || 0 })}
-                  className="text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50" />
-                <input type="text" placeholder="Description" value={newItem.description} onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                  className="text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50" />
+                <input type="text" placeholder="Item name *" value={newItem.name} onChange={(e) => setNewItem({ ...newItem, name: e.target.value })} className="text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50" />
+                <input type="text" placeholder="Price range (e.g. $14 – $20)" value={newItem.price_range} onChange={(e) => setNewItem({ ...newItem, price_range: e.target.value })} className="text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50" />
+                <input type="number" placeholder="Price in cents (e.g. 1700)" value={newItem.price || ''} onChange={(e) => setNewItem({ ...newItem, price: parseInt(e.target.value) || 0 })} className="text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50" />
+                <input type="text" placeholder="Description" value={newItem.description} onChange={(e) => setNewItem({ ...newItem, description: e.target.value })} className="text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50" />
               </div>
-              <button onClick={addItem} disabled={saving || !newItem.name}
-                className="text-xs font-bold uppercase bg-purple-600 text-white rounded-lg px-6 py-2 hover:bg-purple-500 transition-colors disabled:opacity-50">
+              <button onClick={addItem} disabled={saving || !newItem.name} className="text-xs font-bold uppercase bg-purple-600 text-white rounded-lg px-6 py-2 hover:bg-purple-500 transition-colors disabled:opacity-50">
                 {saving ? 'Adding...' : '+ Add to Menu'}
               </button>
             </div>
@@ -361,41 +294,19 @@ export default function OwnerPage() {
                   {isEditing ? (
                     <div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-                        <div>
-                          <label className="text-[9px] text-gray-500 uppercase tracking-wider">Name</label>
-                          <input type="text" value={editingItem.name} onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
-                            className="w-full text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500/50" />
-                        </div>
-                        <div>
-                          <label className="text-[9px] text-gray-500 uppercase tracking-wider">Price Range</label>
-                          <input type="text" value={editingItem.price_range} onChange={(e) => setEditingItem({ ...editingItem, price_range: e.target.value })}
-                            className="w-full text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500/50" />
-                        </div>
-                        <div>
-                          <label className="text-[9px] text-gray-500 uppercase tracking-wider">Price (cents)</label>
-                          <input type="number" value={editingItem.price} onChange={(e) => setEditingItem({ ...editingItem, price: parseInt(e.target.value) || 0 })}
-                            className="w-full text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500/50" />
-                        </div>
-                        <div>
-                          <label className="text-[9px] text-gray-500 uppercase tracking-wider">Description</label>
-                          <input type="text" value={editingItem.description} onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })}
-                            className="w-full text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500/50" />
-                        </div>
+                        <div><label className="text-[9px] text-gray-500 uppercase tracking-wider">Name</label><input type="text" value={editingItem.name} onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })} className="w-full text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500/50" /></div>
+                        <div><label className="text-[9px] text-gray-500 uppercase tracking-wider">Price Range</label><input type="text" value={editingItem.price_range} onChange={(e) => setEditingItem({ ...editingItem, price_range: e.target.value })} className="w-full text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500/50" /></div>
+                        <div><label className="text-[9px] text-gray-500 uppercase tracking-wider">Price (cents)</label><input type="number" value={editingItem.price} onChange={(e) => setEditingItem({ ...editingItem, price: parseInt(e.target.value) || 0 })} className="w-full text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500/50" /></div>
+                        <div><label className="text-[9px] text-gray-500 uppercase tracking-wider">Description</label><input type="text" value={editingItem.description} onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })} className="w-full text-sm bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500/50" /></div>
                       </div>
                       <div className="flex items-center gap-2">
                         {editingItem.image_url && <img src={editingItem.image_url} alt="" className="w-12 h-12 rounded-lg object-cover" />}
-                        <button onClick={() => { if (fileInputRef.current) { fileInputRef.current.dataset.itemId = item.id; fileInputRef.current.click() } }}
-                          disabled={uploadingId === item.id}
-                          className="text-[10px] font-bold uppercase bg-[#0a0a0a] text-gray-300 border border-white/10 rounded-lg px-3 py-2 hover:border-purple-500/40 transition-colors disabled:opacity-50">
+                        <button onClick={() => { if (fileInputRef.current) { fileInputRef.current.dataset.itemId = item.id; fileInputRef.current.click() } }} disabled={uploadingId === item.id} className="text-[10px] font-bold uppercase bg-[#0a0a0a] text-gray-300 border border-white/10 rounded-lg px-3 py-2 hover:border-purple-500/40 transition-colors disabled:opacity-50">
                           {uploadingId === item.id ? 'Uploading...' : '📷 Upload Image'}
                         </button>
                         <div className="flex-1" />
-                        <button onClick={() => saveItem(editingItem)} disabled={saving}
-                          className="text-[10px] font-bold uppercase bg-green-600 text-white rounded-lg px-4 py-2 hover:bg-green-500 transition-colors disabled:opacity-50">
-                          {saving ? 'Saving...' : '✓ Save'}
-                        </button>
-                        <button onClick={() => setEditingItem(null)}
-                          className="text-[10px] font-bold uppercase bg-[#0a0a0a] text-gray-400 border border-white/10 rounded-lg px-4 py-2 hover:text-white transition-colors">Cancel</button>
+                        <button onClick={() => saveItem(editingItem)} disabled={saving} className="text-[10px] font-bold uppercase bg-green-600 text-white rounded-lg px-4 py-2 hover:bg-green-500 transition-colors disabled:opacity-50">{saving ? 'Saving...' : '✓ Save'}</button>
+                        <button onClick={() => setEditingItem(null)} className="text-[10px] font-bold uppercase bg-[#0a0a0a] text-gray-400 border border-white/10 rounded-lg px-4 py-2 hover:text-white transition-colors">Cancel</button>
                       </div>
                     </div>
                   ) : (
@@ -410,14 +321,11 @@ export default function OwnerPage() {
                         <p className="text-[9px] text-gray-600 font-mono">ID: {item.id} · ${(item.price / 100).toFixed(2)}</p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <button onClick={() => setEditingItem({ ...item })}
-                          className="text-[10px] font-bold uppercase text-gray-400 hover:text-purple-300 transition-colors px-2 py-1">✏️ Edit</button>
-                        <button onClick={() => toggleAvailability(item)}
-                          className={`w-10 h-6 rounded-full flex items-center transition-colors cursor-pointer ${item.available ? 'bg-green-500 justify-end' : 'bg-red-500/40 justify-start'}`}>
+                        <button onClick={() => setEditingItem({ ...item })} className="text-[10px] font-bold uppercase text-gray-400 hover:text-purple-300 transition-colors px-2 py-1">✏️ Edit</button>
+                        <button onClick={() => toggleAvailability(item)} className={`w-10 h-6 rounded-full flex items-center transition-colors cursor-pointer ${item.available ? 'bg-green-500 justify-end' : 'bg-red-500/40 justify-start'}`}>
                           <div className="w-5 h-5 bg-white rounded-full shadow mx-0.5" />
                         </button>
-                        <button onClick={() => deleteItem(item.id)} disabled={deletingId === item.id}
-                          className="text-[10px] font-bold text-red-400/40 hover:text-red-400 transition-colors px-1 disabled:opacity-50">🗑️</button>
+                        <button onClick={() => deleteItem(item.id)} disabled={deletingId === item.id} className="text-[10px] font-bold text-red-400/40 hover:text-red-400 transition-colors px-1 disabled:opacity-50">🗑️</button>
                       </div>
                     </div>
                   )}
@@ -427,35 +335,24 @@ export default function OwnerPage() {
           </div>
         </div>
 
-        {/* Order History Header */}
+        {/* Order History */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-black text-white uppercase tracking-wide">Order History</h2>
           <p className="text-[10px] text-gray-500">{filteredOrders.length} orders · Page {page} of {totalPages || 1}</p>
         </div>
 
-        {/* Search + Filters + Export */}
         <div className="flex items-center gap-3 mb-4 flex-wrap">
-          <input type="text" placeholder="Search name, order ID, item..." value={search} onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 min-w-[200px] text-sm bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50" />
-          <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}
-            className="text-xs font-bold uppercase bg-[#1a1a1a] text-gray-300 border border-white/10 rounded-lg px-3 py-2 cursor-pointer">
-            <option value="all">ALL TIME</option>
-            <option value="today">TODAY</option>
-            <option value="week">THIS WEEK</option>
-            <option value="month">THIS MONTH</option>
+          <input type="text" placeholder="Search name, order ID, item..." value={search} onChange={(e) => setSearch(e.target.value)} className="flex-1 min-w-[200px] text-sm bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50" />
+          <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="text-xs font-bold uppercase bg-[#1a1a1a] text-gray-300 border border-white/10 rounded-lg px-3 py-2 cursor-pointer">
+            <option value="all">ALL TIME</option><option value="today">TODAY</option><option value="week">THIS WEEK</option><option value="month">THIS MONTH</option>
           </select>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-            className="text-xs font-bold uppercase bg-[#1a1a1a] text-gray-300 border border-white/10 rounded-lg px-3 py-2 cursor-pointer">
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="text-xs font-bold uppercase bg-[#1a1a1a] text-gray-300 border border-white/10 rounded-lg px-3 py-2 cursor-pointer">
             <option value="all">ALL STATUS</option>
             {ALL_STATUSES.map((s) => <option key={s} value={s}>{s.toUpperCase()}</option>)}
           </select>
-          <button onClick={() => exportToCSV(filteredOrders)}
-            className="text-xs font-bold uppercase bg-purple-900/40 text-purple-300 border border-purple-500/30 rounded-lg px-4 py-2 hover:bg-purple-800/50 transition-colors">
-            📥 Export CSV
-          </button>
+          <button onClick={() => exportToCSV(filteredOrders)} className="text-xs font-bold uppercase bg-purple-900/40 text-purple-300 border border-purple-500/30 rounded-lg px-4 py-2 hover:bg-purple-800/50 transition-colors">📥 Export CSV</button>
         </div>
 
-        {/* Orders Table */}
         {loading ? (
           <div className="text-center py-20 text-gray-500">Loading orders...</div>
         ) : paginatedOrders.length === 0 ? (
@@ -478,17 +375,9 @@ export default function OwnerPage() {
                   {paginatedOrders.map((order) => (
                     <tr key={order.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                       <td className="py-3 px-2"><span className="text-[#D4AF37] font-mono text-xs font-bold">#{order.id.slice(0, 6).toUpperCase()}</span></td>
-                      <td className="py-3 px-2">
-                        <span className="text-gray-400 text-xs">{new Date(order.created_at).toLocaleDateString()}</span><br />
-                        <span className="text-gray-600 text-[10px]">{new Date(order.created_at).toLocaleTimeString()}</span>
-                      </td>
-                      <td className="py-3 px-2">
-                        <span className="text-white text-xs font-semibold">{formatName(order.customer_name) || '—'}</span>
-                        {order.customer_email && <><br /><span className="text-gray-600 text-[10px]">{order.customer_email}</span></>}
-                      </td>
-                      <td className="py-3 px-2">
-                        {order.items.map((item, i) => <span key={i} className="text-gray-300 text-xs block leading-tight">{item.quantity}× {item.name}</span>)}
-                      </td>
+                      <td className="py-3 px-2"><span className="text-gray-400 text-xs">{new Date(order.created_at).toLocaleDateString()}</span><br /><span className="text-gray-600 text-[10px]">{new Date(order.created_at).toLocaleTimeString()}</span></td>
+                      <td className="py-3 px-2"><span className="text-white text-xs font-semibold">{formatName(order.customer_name) || '—'}</span>{order.customer_email && <><br /><span className="text-gray-600 text-[10px]">{order.customer_email}</span></>}</td>
+                      <td className="py-3 px-2">{order.items.map((item, i) => <span key={i} className="text-gray-300 text-xs block leading-tight">{item.quantity}× {item.name}</span>)}</td>
                       <td className="py-3 px-2 text-right"><span className="text-[#D4AF37] font-black text-sm">${(order.amount_total / 100).toFixed(2)}</span></td>
                       <td className="py-3 px-2 text-center">
                         <select value={order.status} onChange={(e) => updateStatus(order.id, e.target.value)}
@@ -507,48 +396,20 @@ export default function OwnerPage() {
               </table>
             </div>
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-between mt-4">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="text-xs font-bold uppercase bg-[#1a1a1a] text-gray-300 border border-white/10 rounded-lg px-4 py-2 hover:border-purple-500/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  ← Previous
-                </button>
+                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="text-xs font-bold uppercase bg-[#1a1a1a] text-gray-300 border border-white/10 rounded-lg px-4 py-2 hover:border-purple-500/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">← Previous</button>
                 <div className="flex gap-1">
                   {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
                     let pageNum: number
-                    if (totalPages <= 7) {
-                      pageNum = i + 1
-                    } else if (page <= 4) {
-                      pageNum = i + 1
-                    } else if (page >= totalPages - 3) {
-                      pageNum = totalPages - 6 + i
-                    } else {
-                      pageNum = page - 3 + i
-                    }
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setPage(pageNum)}
-                        className={`text-xs font-bold w-8 h-8 rounded-lg transition-colors ${
-                          page === pageNum ? 'bg-purple-600 text-white' : 'bg-[#1a1a1a] text-gray-500 hover:text-white'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    )
+                    if (totalPages <= 7) pageNum = i + 1
+                    else if (page <= 4) pageNum = i + 1
+                    else if (page >= totalPages - 3) pageNum = totalPages - 6 + i
+                    else pageNum = page - 3 + i
+                    return <button key={pageNum} onClick={() => setPage(pageNum)} className={`text-xs font-bold w-8 h-8 rounded-lg transition-colors ${page === pageNum ? 'bg-purple-600 text-white' : 'bg-[#1a1a1a] text-gray-500 hover:text-white'}`}>{pageNum}</button>
                   })}
                 </div>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="text-xs font-bold uppercase bg-[#1a1a1a] text-gray-300 border border-white/10 rounded-lg px-4 py-2 hover:border-purple-500/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  Next →
-                </button>
+                <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="text-xs font-bold uppercase bg-[#1a1a1a] text-gray-300 border border-white/10 rounded-lg px-4 py-2 hover:border-purple-500/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">Next →</button>
               </div>
             )}
           </>
